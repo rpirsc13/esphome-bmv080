@@ -1,0 +1,16 @@
+# Gitignore settings for ESPHome
+/.esphome/
+/secrets.yaml
+
+# Bosch datasheet (large binary, not redistributable)
+*.pdf
+*.pdf:Zone.Identifier
+
+# Python cache
+__pycache__/
+*.pyc
+
+# OS artifacts
+*:Zone.Identifier
+Thumbs.db
+.DS_Store

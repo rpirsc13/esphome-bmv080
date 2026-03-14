@@ -1,0 +1,1623 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>BMV080 Particulate Matter Sensor — ESPHome Component</title>
+  <style>
+    /* ============================================================
+       ESPHome-Starlight Inspired Theme
+       Dark/light mode, system fonts, responsive layout
+       ============================================================ */
+
+    :root {
+      /* Typography */
+      --sl-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Helvetica Neue', sans-serif;
+      --sl-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      --sl-text-base: 1rem;
+      --sl-line-height: 1.6;
+      --sl-content-width: 55rem;
+
+      /* Light mode colors */
+      --sl-color-white: #fff;
+      --sl-color-gray-1: #f5f6f8;
+      --sl-color-gray-2: #eceef2;
+      --sl-color-gray-3: #c2c5cb;
+      --sl-color-gray-4: #888b96;
+      --sl-color-gray-5: #545861;
+      --sl-color-gray-6: #353841;
+      --sl-color-gray-7: #24272f;
+      --sl-color-black: #17181c;
+
+      /* Accent (ESPHome blue) */
+      --sl-color-accent: #0089f7;
+      --sl-color-accent-light: #4ba6f7;
+      --sl-color-accent-dark: #006bc4;
+
+      /* Semantic */
+      --sl-color-text: var(--sl-color-gray-7);
+      --sl-color-text-secondary: var(--sl-color-gray-5);
+      --sl-color-bg: var(--sl-color-white);
+      --sl-color-bg-sidebar: var(--sl-color-gray-1);
+      --sl-color-bg-code: var(--sl-color-gray-1);
+      --sl-color-border: var(--sl-color-gray-2);
+      --sl-color-link: var(--sl-color-accent);
+      --sl-color-link-hover: var(--sl-color-accent-dark);
+
+      /* Alert colors */
+      --alert-note-border: #4493f8;
+      --alert-note-bg: rgba(68, 147, 248, 0.08);
+      --alert-tip-border: #3fb950;
+      --alert-tip-bg: rgba(63, 185, 80, 0.08);
+      --alert-warning-border: #d29922;
+      --alert-warning-bg: rgba(210, 153, 34, 0.08);
+      --alert-caution-border: #f85149;
+      --alert-caution-bg: rgba(248, 81, 73, 0.08);
+
+      /* Code */
+      --code-keyword: #d73a49;
+      --code-string: #032f62;
+      --code-comment: #6a737d;
+      --code-key: #005cc5;
+      --code-value: #e36209;
+    }
+
+    [data-theme="dark"] {
+      --sl-color-text: #e0e2e7;
+      --sl-color-text-secondary: #9b9faa;
+      --sl-color-bg: #17181c;
+      --sl-color-bg-sidebar: #1e2028;
+      --sl-color-bg-code: #1e2028;
+      --sl-color-border: #2e3038;
+      --sl-color-link: #4ba6f7;
+      --sl-color-link-hover: #7dc0fa;
+      --sl-color-gray-2: #2e3038;
+      --sl-color-gray-3: #454953;
+
+      --alert-note-bg: rgba(68, 147, 248, 0.12);
+      --alert-tip-bg: rgba(63, 185, 80, 0.12);
+      --alert-warning-bg: rgba(210, 153, 34, 0.12);
+      --alert-caution-bg: rgba(248, 81, 73, 0.12);
+
+      --code-keyword: #ff7b72;
+      --code-string: #a5d6ff;
+      --code-comment: #8b949e;
+      --code-key: #79c0ff;
+      --code-value: #ffa657;
+    }
+
+    /* ============================================================
+       Reset & Base
+       ============================================================ */
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    html {
+      font-size: 16px;
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      font-family: var(--sl-font);
+      font-size: var(--sl-text-base);
+      line-height: var(--sl-line-height);
+      color: var(--sl-color-text);
+      background: var(--sl-color-bg);
+    }
+
+    /* ============================================================
+       Header / Navigation
+       ============================================================ */
+
+    .site-header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 3.5rem;
+      padding: 0 1.5rem;
+      background: var(--sl-color-bg);
+      border-bottom: 1px solid var(--sl-color-border);
+    }
+
+    .site-header .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: var(--sl-color-text);
+      text-decoration: none;
+    }
+
+    .site-header .logo svg {
+      width: 1.5rem;
+      height: 1.5rem;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .theme-toggle {
+      background: none;
+      border: 1px solid var(--sl-color-border);
+      border-radius: 0.5rem;
+      padding: 0.35rem 0.6rem;
+      cursor: pointer;
+      color: var(--sl-color-text-secondary);
+      font-size: 0.85rem;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .theme-toggle:hover {
+      background: var(--sl-color-bg-sidebar);
+      color: var(--sl-color-text);
+    }
+
+    .github-link {
+      display: flex;
+      align-items: center;
+      color: var(--sl-color-text-secondary);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .github-link:hover {
+      color: var(--sl-color-text);
+    }
+
+    .github-link svg {
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+
+    /* ============================================================
+       Layout
+       ============================================================ */
+
+    .page-layout {
+      display: flex;
+      min-height: calc(100vh - 3.5rem);
+    }
+
+    /* Sidebar */
+    .sidebar {
+      position: sticky;
+      top: 3.5rem;
+      width: 18.75rem;
+      height: calc(100vh - 3.5rem);
+      overflow-y: auto;
+      padding: 1.5rem 1rem 2rem 1.5rem;
+      background: var(--sl-color-bg-sidebar);
+      border-right: 1px solid var(--sl-color-border);
+      flex-shrink: 0;
+    }
+
+    .sidebar nav ul {
+      list-style: none;
+    }
+
+    .sidebar nav > ul > li {
+      margin-bottom: 1rem;
+    }
+
+    .sidebar .section-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--sl-color-text-secondary);
+      margin-bottom: 0.375rem;
+      padding-left: 0.5rem;
+    }
+
+    .sidebar nav a {
+      display: block;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.375rem;
+      color: var(--sl-color-text-secondary);
+      text-decoration: none;
+      font-size: 0.875rem;
+      line-height: 1.4;
+      transition: color 0.15s, background 0.15s;
+    }
+
+    .sidebar nav a:hover {
+      color: var(--sl-color-text);
+      background: var(--sl-color-border);
+    }
+
+    .sidebar nav a.active {
+      color: var(--sl-color-link);
+      background: var(--alert-note-bg);
+      font-weight: 500;
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      max-width: var(--sl-content-width);
+      margin: 0 auto;
+      padding: 2rem 2rem 4rem;
+    }
+
+    /* ============================================================
+       Typography
+       ============================================================ */
+
+    h1, h2, h3, h4, h5, h6 {
+      color: var(--sl-color-text);
+      font-weight: 600;
+      line-height: 1.25;
+      margin-top: 2rem;
+      margin-bottom: 0.75rem;
+    }
+
+    h1 {
+      font-size: 2rem;
+      margin-top: 0;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--sl-color-border);
+    }
+
+    h2 {
+      font-size: 1.5rem;
+      margin-top: 2.5rem;
+      padding-bottom: 0.35rem;
+      border-bottom: 1px solid var(--sl-color-border);
+    }
+
+    h3 {
+      font-size: 1.25rem;
+    }
+
+    h4 {
+      font-size: 1.1rem;
+    }
+
+    p {
+      margin-bottom: 1rem;
+    }
+
+    a {
+      color: var(--sl-color-link);
+      text-decoration: none;
+    }
+
+    a:hover {
+      color: var(--sl-color-link-hover);
+      text-decoration: underline;
+    }
+
+    strong {
+      font-weight: 600;
+    }
+
+    /* Anchor links on headings */
+    .heading-anchor {
+      margin-left: 0.35rem;
+      color: var(--sl-color-text-secondary);
+      opacity: 0;
+      text-decoration: none;
+      transition: opacity 0.15s;
+    }
+
+    h1:hover .heading-anchor,
+    h2:hover .heading-anchor,
+    h3:hover .heading-anchor,
+    h4:hover .heading-anchor {
+      opacity: 1;
+    }
+
+    .heading-anchor:hover {
+      color: var(--sl-color-link);
+      text-decoration: none;
+    }
+
+    /* Subtitle / lead text */
+    .lead {
+      font-size: 1.125rem;
+      color: var(--sl-color-text-secondary);
+      margin-bottom: 1.5rem;
+    }
+
+    /* ============================================================
+       Lists
+       ============================================================ */
+
+    ul, ol {
+      margin-bottom: 1rem;
+      padding-left: 1.5rem;
+    }
+
+    li {
+      margin-bottom: 0.25rem;
+    }
+
+    li > ul, li > ol {
+      margin-top: 0.25rem;
+      margin-bottom: 0;
+    }
+
+    /* ============================================================
+       Code
+       ============================================================ */
+
+    code {
+      font-family: var(--sl-font-mono);
+      font-size: 0.875em;
+      background: var(--sl-color-bg-code);
+      padding: 0.15em 0.35em;
+      border-radius: 0.25rem;
+      border: 1px solid var(--sl-color-border);
+    }
+
+    pre {
+      margin-bottom: 1rem;
+      padding: 1rem 1.25rem;
+      background: var(--sl-color-bg-code);
+      border: 1px solid var(--sl-color-border);
+      border-radius: 0.5rem;
+      overflow-x: auto;
+      tab-size: 2;
+      -moz-tab-size: 2;
+    }
+
+    pre code {
+      background: none;
+      border: none;
+      padding: 0;
+      font-size: 0.875rem;
+      line-height: 1.6;
+    }
+
+    /* Code header (language label) */
+    .code-block {
+      position: relative;
+      margin-bottom: 1rem;
+    }
+
+    .code-block .code-lang {
+      position: absolute;
+      top: 0;
+      right: 0;
+      padding: 0.2rem 0.6rem;
+      font-size: 0.7rem;
+      font-family: var(--sl-font-mono);
+      color: var(--sl-color-text-secondary);
+      background: var(--sl-color-border);
+      border-radius: 0 0.5rem 0 0.375rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* YAML syntax highlighting */
+    .yaml .key { color: var(--code-key); }
+    .yaml .value { color: var(--code-value); }
+    .yaml .string { color: var(--code-string); }
+    .yaml .comment { color: var(--code-comment); font-style: italic; }
+    .yaml .bool { color: var(--code-keyword); }
+
+    /* Bash syntax highlighting */
+    .bash .comment { color: var(--code-comment); font-style: italic; }
+    .bash .command { color: var(--code-key); }
+
+    /* ============================================================
+       Tables
+       ============================================================ */
+
+    .table-wrapper {
+      overflow-x: auto;
+      margin-bottom: 1rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.9rem;
+    }
+
+    thead {
+      border-bottom: 2px solid var(--sl-color-border);
+    }
+
+    th {
+      text-align: left;
+      padding: 0.625rem 0.75rem;
+      font-weight: 600;
+      color: var(--sl-color-text);
+      white-space: nowrap;
+    }
+
+    td {
+      padding: 0.5rem 0.75rem;
+      border-bottom: 1px solid var(--sl-color-border);
+      vertical-align: top;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr.highlight td {
+      font-weight: 600;
+    }
+
+    /* ============================================================
+       Alerts / Asides
+       ============================================================ */
+
+    .alert {
+      margin-bottom: 1rem;
+      padding: 0.75rem 1rem;
+      border-left: 4px solid;
+      border-radius: 0.375rem;
+      font-size: 0.9rem;
+    }
+
+    .alert-title {
+      display: flex;
+      align-items: center;
+      gap: 0.375rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      font-size: 0.85rem;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .alert-note {
+      border-color: var(--alert-note-border);
+      background: var(--alert-note-bg);
+    }
+    .alert-note .alert-title { color: var(--alert-note-border); }
+
+    .alert-tip {
+      border-color: var(--alert-tip-border);
+      background: var(--alert-tip-bg);
+    }
+    .alert-tip .alert-title { color: var(--alert-tip-border); }
+
+    .alert-warning {
+      border-color: var(--alert-warning-border);
+      background: var(--alert-warning-bg);
+    }
+    .alert-warning .alert-title { color: var(--alert-warning-border); }
+
+    .alert-caution {
+      border-color: var(--alert-caution-border);
+      background: var(--alert-caution-bg);
+    }
+    .alert-caution .alert-title { color: var(--alert-caution-border); }
+
+    /* ============================================================
+       Configuration Variable List (ESPHome style)
+       ============================================================ */
+
+    .cv-list {
+      list-style: none;
+      padding-left: 0;
+      margin-bottom: 1rem;
+    }
+
+    .cv-list li {
+      padding: 0.35rem 0;
+      padding-left: 1.25rem;
+      position: relative;
+      margin-bottom: 0.15rem;
+    }
+
+    .cv-list li::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0.75rem;
+      width: 0.4rem;
+      height: 0.4rem;
+      background: var(--sl-color-gray-3);
+      border-radius: 50%;
+    }
+
+    .cv-name {
+      font-family: var(--sl-font-mono);
+      font-weight: 600;
+      font-size: 0.9rem;
+      color: var(--code-key);
+    }
+
+    .cv-required {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--alert-caution-border);
+      margin-left: 0.25rem;
+    }
+
+    .cv-optional {
+      font-size: 0.7rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      color: var(--sl-color-text-secondary);
+      margin-left: 0.25rem;
+    }
+
+    .cv-type {
+      font-size: 0.8rem;
+      color: var(--sl-color-text-secondary);
+      font-style: italic;
+    }
+
+    .cv-desc {
+      color: var(--sl-color-text);
+    }
+
+    /* ============================================================
+       Feature Cards / Badges
+       ============================================================ */
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.25rem 0.65rem;
+      font-size: 0.8rem;
+      font-weight: 500;
+      border-radius: 2rem;
+      border: 1px solid var(--sl-color-border);
+      background: var(--sl-color-bg-sidebar);
+      color: var(--sl-color-text-secondary);
+    }
+
+    .badge-success {
+      border-color: var(--alert-tip-border);
+      color: var(--alert-tip-border);
+      background: var(--alert-tip-bg);
+    }
+
+    .badge-info {
+      border-color: var(--alert-note-border);
+      color: var(--alert-note-border);
+      background: var(--alert-note-bg);
+    }
+
+    /* Feature grid */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .feature-card {
+      padding: 1rem 1.25rem;
+      border: 1px solid var(--sl-color-border);
+      border-radius: 0.5rem;
+      background: var(--sl-color-bg-sidebar);
+    }
+
+    .feature-card h4 {
+      margin-top: 0;
+      margin-bottom: 0.35rem;
+      font-size: 0.95rem;
+    }
+
+    .feature-card p {
+      font-size: 0.875rem;
+      color: var(--sl-color-text-secondary);
+      margin-bottom: 0;
+    }
+
+    /* ============================================================
+       Architecture Diagram
+       ============================================================ */
+
+    .diagram {
+      margin: 1rem 0 1.5rem;
+      padding: 1.25rem 1.5rem;
+      background: var(--sl-color-bg-code);
+      border: 1px solid var(--sl-color-border);
+      border-radius: 0.5rem;
+      overflow-x: auto;
+    }
+
+    .diagram pre {
+      margin: 0;
+      padding: 0;
+      background: none;
+      border: none;
+      font-size: 0.8rem;
+      line-height: 1.35;
+    }
+
+    /* ============================================================
+       Steps
+       ============================================================ */
+
+    .steps {
+      counter-reset: step-counter;
+      list-style: none;
+      padding-left: 0;
+      margin-bottom: 1.5rem;
+    }
+
+    .steps > li {
+      counter-increment: step-counter;
+      position: relative;
+      padding-left: 2.5rem;
+      padding-bottom: 1rem;
+      border-left: 2px solid var(--sl-color-border);
+      margin-left: 0.75rem;
+      margin-bottom: 0;
+    }
+
+    .steps > li:last-child {
+      border-left-color: transparent;
+      padding-bottom: 0;
+    }
+
+    .steps > li::before {
+      content: counter(step-counter);
+      position: absolute;
+      left: -0.875rem;
+      top: 0;
+      width: 1.5rem;
+      height: 1.5rem;
+      background: var(--sl-color-accent);
+      color: var(--sl-color-white);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.75rem;
+      font-weight: 700;
+    }
+
+    .steps > li h3 {
+      margin-top: 0;
+      font-size: 1.05rem;
+    }
+
+    /* ============================================================
+       Footer
+       ============================================================ */
+
+    .site-footer {
+      padding: 2rem 1.5rem;
+      border-top: 1px solid var(--sl-color-border);
+      text-align: center;
+      font-size: 0.8rem;
+      color: var(--sl-color-text-secondary);
+    }
+
+    .site-footer a {
+      color: var(--sl-color-link);
+    }
+
+    /* ============================================================
+       Responsive
+       ============================================================ */
+
+    @media (max-width: 72rem) {
+      .sidebar {
+        display: none;
+      }
+
+      .main-content {
+        padding: 1.5rem 1rem 3rem;
+      }
+    }
+
+    @media (max-width: 48rem) {
+      h1 { font-size: 1.5rem; }
+      h2 { font-size: 1.25rem; }
+      h3 { font-size: 1.1rem; }
+
+      .feature-grid {
+        grid-template-columns: 1fr;
+      }
+
+      pre {
+        font-size: 0.8rem;
+        padding: 0.75rem 1rem;
+      }
+    }
+
+    /* ============================================================
+       Wiring Diagram (visual)
+       ============================================================ */
+
+    .wiring-table td:first-child {
+      font-family: var(--sl-font-mono);
+      font-weight: 600;
+      color: var(--code-key);
+      white-space: nowrap;
+    }
+
+    .wiring-table td:nth-child(2) {
+      font-family: var(--sl-font-mono);
+      color: var(--code-value);
+      white-space: nowrap;
+    }
+
+    /* ============================================================
+       Scroll margin for anchor links under sticky header
+       ============================================================ */
+
+    [id] {
+      scroll-margin-top: 4.5rem;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ================================================================
+       HEADER
+       ================================================================ -->
+  <header class="site-header">
+    <a class="logo" href="#">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+        <path d="M2 17l10 5 10-5"/>
+        <path d="M2 12l10 5 10-5"/>
+      </svg>
+      ESPHome BMV080
+    </a>
+    <div class="header-actions">
+      <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle theme">
+        <span id="theme-icon">Light</span>
+      </button>
+      <a class="github-link" href="https://github.com/sweitzja/esphome-bmv080" target="_blank" rel="noopener" aria-label="GitHub repository">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+        </svg>
+      </a>
+    </div>
+  </header>
+
+  <!-- ================================================================
+       PAGE LAYOUT
+       ================================================================ -->
+  <div class="page-layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <nav>
+        <ul>
+          <li>
+            <div class="section-title">Getting Started</div>
+            <ul>
+              <li><a href="#features">Features</a></li>
+              <li><a href="#supported-hardware">Supported Hardware</a></li>
+              <li><a href="#quick-start">Quick Start</a></li>
+            </ul>
+          </li>
+          <li>
+            <div class="section-title">Configuration</div>
+            <ul>
+              <li><a href="#hub-configuration">Hub</a></li>
+              <li><a href="#sensor-configuration">Sensors</a></li>
+              <li><a href="#binary-sensor-configuration">Binary Sensors</a></li>
+            </ul>
+          </li>
+          <li>
+            <div class="section-title">Examples</div>
+            <ul>
+              <li><a href="#minimal">Minimal (PM2.5)</a></li>
+              <li><a href="#full-configuration">Full Config</a></li>
+              <li><a href="#duty-cycle-mode">Duty Cycle</a></li>
+              <li><a href="#ethernet">Ethernet (C3)</a></li>
+            </ul>
+          </li>
+          <li>
+            <div class="section-title">Reference</div>
+            <ul>
+              <li><a href="#architecture">Architecture</a></li>
+              <li><a href="#i2c-protocol">I2C Protocol</a></li>
+              <li><a href="#wiring">Wiring</a></li>
+              <li><a href="#resource-usage">Resources</a></li>
+            </ul>
+          </li>
+          <li>
+            <div class="section-title">Help</div>
+            <ul>
+              <li><a href="#troubleshooting">Troubleshooting</a></li>
+              <li><a href="#development">Development</a></li>
+              <li><a href="#sdk-sources">SDK Sources</a></li>
+            </ul>
+          </li>
+        </ul>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+
+      <!-- Title -->
+      <h1 id="title">
+        BMV080 Particulate Matter Sensor
+        <a class="heading-anchor" href="#title">#</a>
+      </h1>
+
+      <p class="lead">
+        An <a href="https://esphome.io/">ESPHome</a> external component for the
+        <a href="https://www.bosch-sensortec.com/products/environmental-sensors/particulate-matter-sensors/bmv080/">Bosch BMV080</a>
+        particulate matter sensor. Measures PM1.0, PM2.5, and PM10 mass and number concentrations
+        over I2C using the Bosch precompiled SDK.
+      </p>
+
+      <div class="badge-row">
+        <span class="badge badge-success">Tested &amp; Working</span>
+        <span class="badge badge-info">ESP-IDF</span>
+        <span class="badge badge-info">Arduino</span>
+        <span class="badge">SDK v24.2.0</span>
+        <span class="badge">I2C</span>
+      </div>
+
+      <!-- Features -->
+      <h2 id="features">
+        Features
+        <a class="heading-anchor" href="#features">#</a>
+      </h2>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4>Mass Concentration</h4>
+          <p>PM1.0, PM2.5, PM10 in &micro;g/m&sup3; with proper Home Assistant device classes</p>
+        </div>
+        <div class="feature-card">
+          <h4>Number Concentration</h4>
+          <p>PM1.0, PM2.5, PM10 particle counts in #/cm&sup3;</p>
+        </div>
+        <div class="feature-card">
+          <h4>Obstruction Detection</h4>
+          <p>Alerts when the sensor's optical path is blocked</p>
+        </div>
+        <div class="feature-card">
+          <h4>Range Monitoring</h4>
+          <p>Alerts when PM2.5 exceeds 1000 &micro;g/m&sup3;</p>
+        </div>
+        <div class="feature-card">
+          <h4>Measurement Modes</h4>
+          <p>Continuous or duty cycle (low power) with configurable timing</p>
+        </div>
+        <div class="feature-card">
+          <h4>Algorithm Presets</h4>
+          <p>Fast response, balanced, or high precision measurement algorithms</p>
+        </div>
+      </div>
+
+
+      <!-- Supported Hardware -->
+      <h2 id="supported-hardware">
+        Supported Hardware
+        <a class="heading-anchor" href="#supported-hardware">#</a>
+      </h2>
+
+      <h3>ESP32 Platforms</h3>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Platform</th><th>Architecture</th><th>Status</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>ESP32</td><td>Xtensa LX6</td><td>Supported (untested)</td></tr>
+            <tr><td>ESP32-S3</td><td>Xtensa LX7</td><td>Supported (untested)</td></tr>
+            <tr class="highlight"><td>ESP32-C3</td><td>RISC-V</td><td>Tested, verified working</td></tr>
+            <tr><td>ESP32-C6</td><td>RISC-V</td><td>Supported (untested)</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>BMV080 Breakout Boards</h3>
+      <ul>
+        <li><a href="https://www.sparkfun.com/products/24959">SparkFun Particulate Matter Sensor - BMV080 (Qwiic)</a> &mdash; Default I2C address 0x57, 2.2k pull-ups included</li>
+        <li><a href="https://www.dfrobot.com/product-2842.html">DFRobot Gravity BMV080</a> &mdash; Default I2C address 0x57</li>
+      </ul>
+
+      <h3>Frameworks</h3>
+      <p>Both <strong>Arduino</strong> and <strong>ESP-IDF</strong> frameworks are supported.</p>
+
+
+      <!-- Quick Start -->
+      <h2 id="quick-start">
+        Quick Start
+        <a class="heading-anchor" href="#quick-start">#</a>
+      </h2>
+
+      <ol class="steps">
+        <li>
+          <h3>Add the External Component</h3>
+          <p>Add this repository as an external component source in your ESPHome YAML:</p>
+          <div class="code-block">
+            <span class="code-lang">yaml</span>
+            <pre><code class="yaml"><span class="key">external_components</span>:
+  - <span class="key">source</span>:
+      <span class="key">type</span>: <span class="value">git</span>
+      <span class="key">url</span>: <span class="string">https://github.com/sweitzja/esphome-bmv080</span>
+    <span class="key">components</span>: [<span class="value">bmv080</span>]</code></pre>
+          </div>
+          <p>Or for local development:</p>
+          <div class="code-block">
+            <span class="code-lang">yaml</span>
+            <pre><code class="yaml"><span class="key">external_components</span>:
+  - <span class="key">source</span>:
+      <span class="key">type</span>: <span class="value">local</span>
+      <span class="key">path</span>: <span class="value">components</span>
+    <span class="key">components</span>: [<span class="value">bmv080</span>]</code></pre>
+          </div>
+        </li>
+
+        <li>
+          <h3>Configure the BMV080 Hub</h3>
+          <div class="code-block">
+            <span class="code-lang">yaml</span>
+            <pre><code class="yaml"><span class="key">i2c</span>:
+  <span class="key">sda</span>: <span class="value">GPIO21</span>
+  <span class="key">scl</span>: <span class="value">GPIO22</span>
+  <span class="key">scan</span>: <span class="bool">true</span>
+
+<span class="key">bmv080</span>:
+  <span class="key">id</span>: <span class="value">bmv080_sensor</span>
+  <span class="key">address</span>: <span class="value">0x57</span>
+  <span class="key">mode</span>: <span class="value">continuous</span>
+  <span class="key">measurement_algorithm</span>: <span class="value">high_precision</span>
+  <span class="key">update_interval</span>: <span class="value">5s</span></code></pre>
+          </div>
+        </li>
+
+        <li>
+          <h3>Add Sensors</h3>
+          <div class="code-block">
+            <span class="code-lang">yaml</span>
+            <pre><code class="yaml"><span class="key">sensor</span>:
+  - <span class="key">platform</span>: <span class="value">bmv080</span>
+    <span class="key">bmv080_id</span>: <span class="value">bmv080_sensor</span>
+    <span class="key">pm_2_5</span>:
+      <span class="key">name</span>: <span class="string">"PM 2.5"</span>
+    <span class="key">pm_10</span>:
+      <span class="key">name</span>: <span class="string">"PM 10"</span>
+
+<span class="key">binary_sensor</span>:
+  - <span class="key">platform</span>: <span class="value">bmv080</span>
+    <span class="key">bmv080_id</span>: <span class="value">bmv080_sensor</span>
+    <span class="key">obstructed</span>:
+      <span class="key">name</span>: <span class="string">"Sensor Obstructed"</span></code></pre>
+          </div>
+        </li>
+      </ol>
+
+
+      <!-- Hub Configuration -->
+      <h2 id="hub-configuration">
+        Hub Configuration
+        <a class="heading-anchor" href="#hub-configuration">#</a>
+      </h2>
+
+      <ul class="cv-list">
+        <li>
+          <span class="cv-name">id</span>
+          <span class="cv-required">Required</span>
+          <span class="cv-type">(ID)</span>:
+          <span class="cv-desc">The ID used to reference this hub from sensor/binary_sensor platforms.</span>
+        </li>
+        <li>
+          <span class="cv-name">address</span>
+          <span class="cv-optional">Optional</span>
+          <span class="cv-type">(int)</span>:
+          <span class="cv-desc">I2C address of the BMV080. One of <code>0x54</code>, <code>0x55</code>, <code>0x56</code>, or <code>0x57</code>. Default: <code>0x57</code>.</span>
+        </li>
+        <li>
+          <span class="cv-name">i2c_id</span>
+          <span class="cv-optional">Optional</span>
+          <span class="cv-type">(ID)</span>:
+          <span class="cv-desc">If you have multiple I2C buses, specify which one to use.</span>
+        </li>
+        <li>
+          <span class="cv-name">mode</span>
+          <span class="cv-optional">Optional</span>
+          <span class="cv-type">(enum)</span>:
+          <span class="cv-desc">Measurement mode. Default: <code>continuous</code>.</span>
+          <ul>
+            <li><code>continuous</code> &mdash; Always on, data every ~1 second, higher power consumption.</li>
+            <li><code>duty_cycle</code> &mdash; Periodic on/off, saves power, data every <code>duty_cycling_period</code>.</li>
+          </ul>
+        </li>
+        <li>
+          <span class="cv-name">measurement_algorithm</span>
+          <span class="cv-optional">Optional</span>
+          <span class="cv-type">(enum)</span>:
+          <span class="cv-desc">Algorithm preset. Default: <code>high_precision</code>.</span>
+          <ul>
+            <li><code>fast_response</code> &mdash; Quickest updates, lower accuracy.</li>
+            <li><code>balanced</code> &mdash; Middle ground between speed and precision.</li>
+            <li><code>high_precision</code> &mdash; Slowest updates, highest accuracy.</li>
+          </ul>
+        </li>
+        <li>
+          <span class="cv-name">integration_time</span>
+          <span class="cv-optional">Optional</span>
+          <span class="cv-type">(float, seconds)</span>:
+          <span class="cv-desc">How long the sensor measures before producing an output. Also serves as the ON time in duty cycle mode. Range: 1.0&ndash;300.0. Default: <code>10.0</code>.</span>
+        </li>
+        <li>
+          <span class="cv-name">duty_cycling_period</span>
+          <span class="cv-optional">Optional</span>
+          <span class="cv-type">(int, seconds)</span>:
+          <span class="cv-desc">Total period for one on/off cycle in duty cycle mode. Must exceed <code>integration_time</code> by at least 2 seconds. Range: 12&ndash;3600. Default: <code>30</code>.</span>
+        </li>
+        <li>
+          <span class="cv-name">obstruction_detection</span>
+          <span class="cv-optional">Optional</span>
+          <span class="cv-type">(boolean)</span>:
+          <span class="cv-desc">Enable optical path obstruction detection. Default: <code>true</code>.</span>
+        </li>
+        <li>
+          <span class="cv-name">vibration_filtering</span>
+          <span class="cv-optional">Optional</span>
+          <span class="cv-type">(boolean)</span>:
+          <span class="cv-desc">Enable vibration noise filtering. Default: <code>false</code>.</span>
+        </li>
+        <li>
+          <span class="cv-name">update_interval</span>
+          <span class="cv-optional">Optional</span>
+          <span class="cv-type">(Time)</span>:
+          <span class="cv-desc">How often to publish sensor data to Home Assistant. Default: <code>1s</code>.</span>
+        </li>
+      </ul>
+
+      <div class="alert alert-note">
+        <div class="alert-title">Note</div>
+        <p>Duty cycle mode forces the <code>fast_response</code> algorithm regardless of the <code>measurement_algorithm</code> setting.</p>
+      </div>
+
+
+      <!-- Sensor Configuration -->
+      <h2 id="sensor-configuration">
+        Sensor Configuration
+        <a class="heading-anchor" href="#sensor-configuration">#</a>
+      </h2>
+
+      <p>All sensors are optional. Only add the ones you need.</p>
+
+      <ul class="cv-list">
+        <li>
+          <span class="cv-name">pm_1_0</span>
+          <span class="cv-optional">Optional</span>:
+          <span class="cv-desc">PM1.0 mass concentration in &micro;g/m&sup3;. Device class: <code>pm1</code>.</span>
+        </li>
+        <li>
+          <span class="cv-name">pm_2_5</span>
+          <span class="cv-optional">Optional</span>:
+          <span class="cv-desc">PM2.5 mass concentration in &micro;g/m&sup3;. Device class: <code>pm25</code>.</span>
+        </li>
+        <li>
+          <span class="cv-name">pm_10</span>
+          <span class="cv-optional">Optional</span>:
+          <span class="cv-desc">PM10 mass concentration in &micro;g/m&sup3;. Device class: <code>pm10</code>.</span>
+        </li>
+        <li>
+          <span class="cv-name">pm_1_0_count</span>
+          <span class="cv-optional">Optional</span>:
+          <span class="cv-desc">PM1.0 number concentration in particles/cm&sup3;.</span>
+        </li>
+        <li>
+          <span class="cv-name">pm_2_5_count</span>
+          <span class="cv-optional">Optional</span>:
+          <span class="cv-desc">PM2.5 number concentration in particles/cm&sup3;.</span>
+        </li>
+        <li>
+          <span class="cv-name">pm_10_count</span>
+          <span class="cv-optional">Optional</span>:
+          <span class="cv-desc">PM10 number concentration in particles/cm&sup3;.</span>
+        </li>
+        <li>
+          <span class="cv-name">runtime</span>
+          <span class="cv-optional">Optional</span>:
+          <span class="cv-desc">Time since measurement start in seconds. Registered as a diagnostic entity (hidden by default in Home Assistant).</span>
+        </li>
+      </ul>
+
+      <p>Each sensor also accepts all standard <a href="https://esphome.io/components/sensor/">ESPHome Sensor</a> configuration variables (filters, icon, etc.).</p>
+
+
+      <!-- Binary Sensor Configuration -->
+      <h2 id="binary-sensor-configuration">
+        Binary Sensor Configuration
+        <a class="heading-anchor" href="#binary-sensor-configuration">#</a>
+      </h2>
+
+      <ul class="cv-list">
+        <li>
+          <span class="cv-name">obstructed</span>
+          <span class="cv-optional">Optional</span>:
+          <span class="cv-desc">Optical path obstruction detected. Device class: <code>problem</code>.</span>
+        </li>
+        <li>
+          <span class="cv-name">out_of_range</span>
+          <span class="cv-optional">Optional</span>:
+          <span class="cv-desc">PM2.5 outside measurement range (0&ndash;1000 &micro;g/m&sup3;). Device class: <code>problem</code>.</span>
+        </li>
+      </ul>
+
+
+      <!-- Examples -->
+      <h2 id="examples">
+        Example Configurations
+        <a class="heading-anchor" href="#examples">#</a>
+      </h2>
+
+      <h3 id="minimal">Minimal (PM2.5 Only)</h3>
+
+      <div class="code-block">
+        <span class="code-lang">yaml</span>
+        <pre><code class="yaml"><span class="key">external_components</span>:
+  - <span class="key">source</span>:
+      <span class="key">type</span>: <span class="value">git</span>
+      <span class="key">url</span>: <span class="string">https://github.com/sweitzja/esphome-bmv080</span>
+    <span class="key">components</span>: [<span class="value">bmv080</span>]
+
+<span class="key">i2c</span>:
+  <span class="key">sda</span>: <span class="value">GPIO21</span>
+  <span class="key">scl</span>: <span class="value">GPIO22</span>
+
+<span class="key">bmv080</span>:
+  <span class="key">id</span>: <span class="value">bmv080_sensor</span>
+
+<span class="key">sensor</span>:
+  - <span class="key">platform</span>: <span class="value">bmv080</span>
+    <span class="key">bmv080_id</span>: <span class="value">bmv080_sensor</span>
+    <span class="key">pm_2_5</span>:
+      <span class="key">name</span>: <span class="string">"PM 2.5"</span></code></pre>
+      </div>
+
+
+      <h3 id="full-configuration">Full Configuration (All Sensors)</h3>
+
+      <div class="code-block">
+        <span class="code-lang">yaml</span>
+        <pre><code class="yaml"><span class="key">external_components</span>:
+  - <span class="key">source</span>:
+      <span class="key">type</span>: <span class="value">git</span>
+      <span class="key">url</span>: <span class="string">https://github.com/sweitzja/esphome-bmv080</span>
+    <span class="key">components</span>: [<span class="value">bmv080</span>]
+
+<span class="key">i2c</span>:
+  <span class="key">sda</span>: <span class="value">GPIO21</span>
+  <span class="key">scl</span>: <span class="value">GPIO22</span>
+  <span class="key">scan</span>: <span class="bool">true</span>
+
+<span class="key">bmv080</span>:
+  <span class="key">id</span>: <span class="value">bmv080_sensor</span>
+  <span class="key">address</span>: <span class="value">0x57</span>
+  <span class="key">mode</span>: <span class="value">continuous</span>
+  <span class="key">measurement_algorithm</span>: <span class="value">high_precision</span>
+  <span class="key">integration_time</span>: <span class="value">10.0</span>
+  <span class="key">obstruction_detection</span>: <span class="bool">true</span>
+  <span class="key">vibration_filtering</span>: <span class="bool">false</span>
+  <span class="key">update_interval</span>: <span class="value">5s</span>
+
+<span class="key">sensor</span>:
+  - <span class="key">platform</span>: <span class="value">bmv080</span>
+    <span class="key">bmv080_id</span>: <span class="value">bmv080_sensor</span>
+    <span class="key">pm_1_0</span>:
+      <span class="key">name</span>: <span class="string">"PM 1.0"</span>
+    <span class="key">pm_2_5</span>:
+      <span class="key">name</span>: <span class="string">"PM 2.5"</span>
+    <span class="key">pm_10</span>:
+      <span class="key">name</span>: <span class="string">"PM 10"</span>
+    <span class="key">pm_1_0_count</span>:
+      <span class="key">name</span>: <span class="string">"PM 1.0 Count"</span>
+    <span class="key">pm_2_5_count</span>:
+      <span class="key">name</span>: <span class="string">"PM 2.5 Count"</span>
+    <span class="key">pm_10_count</span>:
+      <span class="key">name</span>: <span class="string">"PM 10 Count"</span>
+    <span class="key">runtime</span>:
+      <span class="key">name</span>: <span class="string">"BMV080 Runtime"</span>
+
+<span class="key">binary_sensor</span>:
+  - <span class="key">platform</span>: <span class="value">bmv080</span>
+    <span class="key">bmv080_id</span>: <span class="value">bmv080_sensor</span>
+    <span class="key">obstructed</span>:
+      <span class="key">name</span>: <span class="string">"Sensor Obstructed"</span>
+    <span class="key">out_of_range</span>:
+      <span class="key">name</span>: <span class="string">"Out of Range"</span></code></pre>
+      </div>
+
+
+      <h3 id="duty-cycle-mode">Duty Cycle Mode (Low Power)</h3>
+
+      <div class="code-block">
+        <span class="code-lang">yaml</span>
+        <pre><code class="yaml"><span class="key">bmv080</span>:
+  <span class="key">id</span>: <span class="value">bmv080_sensor</span>
+  <span class="key">mode</span>: <span class="value">duty_cycle</span>
+  <span class="key">integration_time</span>: <span class="value">10.0</span>       <span class="comment"># ON for 10 seconds</span>
+  <span class="key">duty_cycling_period</span>: <span class="value">60</span>      <span class="comment"># Total cycle: 60 seconds (50s sleep)</span>
+  <span class="key">update_interval</span>: <span class="value">60s</span>         <span class="comment"># Publish once per cycle</span>
+
+<span class="key">sensor</span>:
+  - <span class="key">platform</span>: <span class="value">bmv080</span>
+    <span class="key">bmv080_id</span>: <span class="value">bmv080_sensor</span>
+    <span class="key">pm_2_5</span>:
+      <span class="key">name</span>: <span class="string">"PM 2.5"</span>
+    <span class="key">pm_10</span>:
+      <span class="key">name</span>: <span class="string">"PM 10"</span></code></pre>
+      </div>
+
+
+      <h3 id="ethernet">ESP32-C3 with W5500 Ethernet</h3>
+
+      <p>See <a href="https://github.com/sweitzja/esphome-bmv080/blob/main/native-esp-w5500.yaml"><code>native-esp-w5500.yaml</code></a> in this repository for a complete example using an ESP32-C3 with W5500 SPI ethernet adapter and the SparkFun BMV080 breakout.</p>
+
+
+      <!-- Architecture -->
+      <h2 id="architecture">
+        How It Works
+        <a class="heading-anchor" href="#architecture">#</a>
+      </h2>
+
+      <p>The component uses a <strong>two-thread architecture</strong> to separate the resource-intensive
+      Bosch SDK operations from the ESPHome main loop:</p>
+
+      <div class="feature-grid">
+        <div class="feature-card">
+          <h4>Main Loop Thread (~8KB)</h4>
+          <p>Runs the ESPHome API server, web server, and OTA handler. Publishes cached sensor data to Home Assistant at the configured interval. Never calls any Bosch SDK functions.</p>
+        </div>
+        <div class="feature-card">
+          <h4>BMV080 Task Thread (64KB)</h4>
+          <p>Runs all Bosch SDK operations in a dedicated FreeRTOS task. Waits 10 seconds after boot, initializes the sensor, then loops calling <code>bmv080_serve_interrupt()</code> every 500ms.</p>
+        </div>
+      </div>
+
+      <h3>Why a Separate Task?</h3>
+
+      <p>The Bosch SDK requires approximately <strong>60KB of stack space</strong> for its <code>bmv080_serve_interrupt()</code>
+      function. The default ESP32 main task has only 8&ndash;16KB of stack, which causes immediate stack overflow.
+      Additionally, the SDK initialization sequence blocks for 3&ndash;5 seconds, which would prevent the API server
+      from accepting connections.</p>
+
+      <h3>Startup Sequence</h3>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Time</th><th>Event</th><th>Details</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><strong>0s</strong></td><td>Boot</td><td>ESP32 boots, network starts, ESPHome components initialize</td></tr>
+            <tr><td><strong>~2s</strong></td><td>Setup</td><td>BMV080 component creates mutex and launches FreeRTOS task</td></tr>
+            <tr><td><strong>~3s</strong></td><td>API Ready</td><td>ESPHome API server starts accepting connections</td></tr>
+            <tr><td><strong>10s</strong></td><td>Task Starts</td><td>BMV080 task wakes up and begins sensor initialization</td></tr>
+            <tr><td><strong>~13s</strong></td><td>SDK Init</td><td>Sensor probed, reset, configured, measurement started</td></tr>
+            <tr><td><strong>~15s</strong></td><td>First Data</td><td>First PM reading available (~1.9s after measurement start)</td></tr>
+            <tr><td><strong>Steady</strong></td><td>Running</td><td>New PM data every ~1 second, published per <code>update_interval</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+
+      <!-- I2C Protocol -->
+      <h2 id="i2c-protocol">
+        I2C Protocol
+        <a class="heading-anchor" href="#i2c-protocol">#</a>
+      </h2>
+
+      <p>The BMV080 uses a non-standard <strong>16-bit word-oriented</strong> I2C protocol:</p>
+
+      <ul>
+        <li>All transfers are in 16-bit words, not standard 8-bit register reads</li>
+        <li>The header is shifted left by 1 for I2C mode (<code>header &lt;&lt; 1</code>)</li>
+        <li>Data is MSB-first (most significant byte first)</li>
+        <li>The component handles all protocol translation internally</li>
+      </ul>
+
+
+      <!-- Wiring -->
+      <h2 id="wiring">
+        Wiring
+        <a class="heading-anchor" href="#wiring">#</a>
+      </h2>
+
+      <h3>SparkFun BMV080 Breakout (Qwiic)</h3>
+
+      <div class="table-wrapper">
+        <table class="wiring-table">
+          <thead>
+            <tr><th>BMV080 Pin</th><th>ESP32 Pin</th><th>Description</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>SDA</td><td>GPIO21</td><td>I2C Data</td></tr>
+            <tr><td>SCL</td><td>GPIO22</td><td>I2C Clock</td></tr>
+            <tr><td>3.3V</td><td>3.3V</td><td>Power supply</td></tr>
+            <tr><td>GND</td><td>GND</td><td>Ground</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="alert alert-tip">
+        <div class="alert-title">Tip</div>
+        <p>The SparkFun breakout includes 2.2k pull-up resistors on SDA/SCL. If using a bare BMV080 chip, add 2.2k&ndash;4.7k pull-ups to 3.3V on both I2C lines.</p>
+      </div>
+
+      <h3>I2C Address Selection</h3>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Address</th><th>A1</th><th>A0</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>0x54</code></td><td>LOW</td><td>LOW</td></tr>
+            <tr><td><code>0x55</code></td><td>LOW</td><td>HIGH</td></tr>
+            <tr><td><code>0x56</code></td><td>HIGH</td><td>LOW</td></tr>
+            <tr><td><code>0x57</code> (default)</td><td>HIGH</td><td>HIGH</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+
+      <!-- Resource Usage -->
+      <h2 id="resource-usage">
+        Resource Usage
+        <a class="heading-anchor" href="#resource-usage">#</a>
+      </h2>
+
+      <p>Measured on ESP32-C3 with all sensors enabled:</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Resource</th><th>Usage</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Flash</td><td>~38% of 1.8MB (690KB)</td></tr>
+            <tr><td>RAM</td><td>~9% of 320KB (30KB)</td></tr>
+            <tr><td>Task Stack</td><td>64KB (dedicated FreeRTOS task)</td></tr>
+            <tr><td>I2C Bus</td><td>~50% utilization during <code>serve_interrupt</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+
+      <!-- Troubleshooting -->
+      <h2 id="troubleshooting">
+        Troubleshooting
+        <a class="heading-anchor" href="#troubleshooting">#</a>
+      </h2>
+
+      <h3>Device Not Responding After Flash</h3>
+
+      <p>The BMV080 initialization takes about 3 seconds and runs in a background task that starts 10 seconds after boot.
+      The API server should be available within 3 seconds of boot.</p>
+
+      <p>If the device is completely unreachable:</p>
+      <ol>
+        <li><strong>Power cycle</strong> the device (unplug and replug)</li>
+        <li>Check the I2C wiring &mdash; the sensor needs SDA, SCL, 3.3V, and GND</li>
+        <li>Verify the I2C address matches your hardware (default <code>0x57</code>)</li>
+      </ol>
+
+      <h3>I2C Scan Shows No Devices</h3>
+
+      <div class="code-block">
+        <span class="code-lang">log</span>
+        <pre><code>[W][i2c:xxx]: Found no devices on the I2C bus!</code></pre>
+      </div>
+
+      <ul>
+        <li>Check physical connections (SDA, SCL, power, ground)</li>
+        <li>Verify pull-up resistors are present (2.2k&ndash;4.7k to 3.3V)</li>
+        <li>Try a lower I2C frequency (100kHz)</li>
+        <li>Check that the BMV080 is powered (3.3V)</li>
+      </ul>
+
+      <h3>BMV080 Initialization Failed</h3>
+
+      <p>Check the log for specific error codes:</p>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr><th>Code</th><th>Meaning</th><th>Solution</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><code>105</code></td><td>I2C read failed</td><td>Check wiring and pull-ups</td></tr>
+            <tr><td><code>106</code></td><td>I2C write failed</td><td>Check wiring and pull-ups</td></tr>
+            <tr><td><code>107</code></td><td>Chip ID mismatch</td><td>Wrong I2C address or wiring issue</td></tr>
+            <tr><td><code>180</code></td><td>Wrong API call order</td><td>Component bug &mdash; file an issue</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>No PM Data (Sensor Initialized but No Readings)</h3>
+
+      <ul>
+        <li>The sensor needs ~2 seconds of warmup after starting measurement</li>
+        <li>Ensure <code>update_interval</code> is reasonable (5s or less for continuous mode)</li>
+        <li>Check logs for <code>bmv080_serve_interrupt</code> errors</li>
+        <li>In duty cycle mode, data only appears once per <code>duty_cycling_period</code></li>
+      </ul>
+
+      <h3>FIFO Overflow Warnings</h3>
+
+      <div class="code-block">
+        <span class="code-lang">log</span>
+        <pre><code>[W][bmv080:xxx]: bmv080_serve_interrupt warning: 4</code></pre>
+      </div>
+
+      <p>The sensor is generating more events than can be processed. This is usually harmless but may indicate very high
+      particulate levels. The internal service interval (500ms) should be sufficient for normal conditions.</p>
+
+
+      <!-- Development -->
+      <h2 id="development">
+        Development
+        <a class="heading-anchor" href="#development">#</a>
+      </h2>
+
+      <h3>Building from Source</h3>
+
+      <div class="code-block">
+        <span class="code-lang">bash</span>
+        <pre><code class="bash"><span class="comment"># Clone the repository</span>
+<span class="command">git clone</span> https://github.com/sweitzja/esphome-bmv080.git
+<span class="command">cd</span> esphome-bmv080
+
+<span class="comment"># Compile (no upload)</span>
+<span class="command">esphome compile</span> native-esp-w5500.yaml
+
+<span class="comment"># Compile + upload + watch logs</span>
+<span class="command">esphome run</span> native-esp-w5500.yaml
+
+<span class="comment"># Watch logs only</span>
+<span class="command">esphome logs</span> native-esp-w5500.yaml</code></pre>
+      </div>
+
+      <h3>Project Structure</h3>
+
+      <div class="code-block">
+        <pre><code>components/bmv080/
+  __init__.py          &mdash; Hub component: config schema, code generation, SDK linking
+  sensor.py            &mdash; Sensor platform: PM mass, number, runtime entities
+  binary_sensor.py     &mdash; Binary sensor platform: obstructed, out_of_range entities
+  bmv080_component.h   &mdash; C++ header: class declaration, thread model, data types
+  bmv080.cpp           &mdash; C++ implementation: I2C callbacks, FreeRTOS task, lifecycle
+  bosch/               &mdash; Bosch SDK (precompiled)
+    bmv080.h           &mdash; SDK C API declarations
+    bmv080_defs.h      &mdash; SDK type definitions and enums
+    esp32/             &mdash; Prebuilt libraries for ESP32 (Xtensa)
+    esp32s3/           &mdash; Prebuilt libraries for ESP32-S3 (Xtensa)
+    esp32c3/           &mdash; Prebuilt libraries for ESP32-C3 (RISC-V)
+    esp32c6/           &mdash; Prebuilt libraries for ESP32-C6 (RISC-V)</code></pre>
+      </div>
+
+      <h3>Adding Support for New Architectures</h3>
+
+      <ol>
+        <li>Obtain the prebuilt <code>.a</code> files (<code>lib_bmv080.a</code> and <code>lib_postProcessor.a</code>) for the target architecture from Bosch or a vendor library</li>
+        <li>Create a new subdirectory under <code>bosch/</code> (e.g., <code>bosch/esp32h2/</code>)</li>
+        <li>Place both <code>.a</code> files in the new directory</li>
+        <li>The <code>__init__.py</code> will automatically detect and add the library path</li>
+      </ol>
+
+      <div class="alert alert-note">
+        <div class="alert-title">Note</div>
+        <p>ESP32-C3 and ESP32-C6 share the same RISC-V <code>rv32imc</code> ISA, so their libraries are interchangeable.</p>
+      </div>
+
+
+      <!-- SDK Sources -->
+      <h2 id="sdk-sources">
+        SDK Sources
+        <a class="heading-anchor" href="#sdk-sources">#</a>
+      </h2>
+
+      <p>The Bosch BMV080 SDK is distributed as precompiled static libraries. This component bundles them from the following open-source repositories:</p>
+
+      <ul>
+        <li><strong>Headers</strong> (<code>bmv080.h</code>, <code>bmv080_defs.h</code>): <a href="https://github.com/DFRobot/DFRobot_BMV080">DFRobot/DFRobot_BMV080</a></li>
+        <li><strong>Xtensa libraries</strong> (ESP32, ESP32-S3): <a href="https://github.com/DFRobot/DFRobot_BMV080">DFRobot/DFRobot_BMV080</a></li>
+        <li><strong>RISC-V libraries</strong> (ESP32-C3, ESP32-C6): <a href="https://github.com/sparkfun/SparkFun_BMV080_Arduino_Library">SparkFun/SparkFun_BMV080_Arduino_Library</a></li>
+      </ul>
+
+      <p>SDK version: <strong>24.2.0</strong></p>
+
+
+      <!-- Related Resources -->
+      <h2 id="related-resources">
+        Related Resources
+        <a class="heading-anchor" href="#related-resources">#</a>
+      </h2>
+
+      <ul>
+        <li><a href="https://www.bosch-sensortec.com/products/environmental-sensors/particulate-matter-sensors/bmv080/">Bosch BMV080 Product Page</a></li>
+        <li><a href="https://github.com/esphome/feature-requests/issues/3178">ESPHome Feature Request #3178</a> &mdash; Community request for BMV080 support</li>
+        <li><a href="https://github.com/sparkfun/SparkFun_BMV080_Arduino_Library">SparkFun BMV080 Arduino Library</a></li>
+        <li><a href="https://github.com/DFRobot/DFRobot_BMV080">DFRobot BMV080 Arduino Library</a></li>
+      </ul>
+
+
+      <!-- License -->
+      <h2 id="license">
+        License
+        <a class="heading-anchor" href="#license">#</a>
+      </h2>
+
+      <p>This component's source code (Python and C++ files) is provided under the MIT License.</p>
+
+      <p>The Bosch SDK headers and prebuilt libraries (<code>bosch/</code> directory) are provided by Bosch Sensortec GmbH
+      under their own license terms. See the copyright notice in <code>bosch/bmv080.h</code> and <code>bosch/bmv080_defs.h</code> for details.</p>
+
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="site-footer">
+    <p>
+      ESPHome BMV080 Component &mdash;
+      <a href="https://github.com/sweitzja/esphome-bmv080">GitHub</a> &middot;
+      <a href="https://esphome.io/">ESPHome</a> &middot;
+      <a href="https://www.bosch-sensortec.com/products/environmental-sensors/particulate-matter-sensors/bmv080/">Bosch BMV080</a>
+    </p>
+  </footer>
+
+  <!-- Theme Toggle Script -->
+  <script>
+    function toggleTheme() {
+      const html = document.documentElement;
+      const current = html.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      html.setAttribute('data-theme', next);
+      document.getElementById('theme-icon').textContent = next === 'dark' ? 'Light' : 'Dark';
+      try { localStorage.setItem('theme', next); } catch(e) {}
+    }
+
+    // Restore saved theme
+    try {
+      const saved = localStorage.getItem('theme');
+      if (saved) {
+        document.documentElement.setAttribute('data-theme', saved);
+        document.getElementById('theme-icon').textContent = saved === 'dark' ? 'Light' : 'Dark';
+      }
+    } catch(e) {}
+
+    // Sidebar active link highlighting
+    const sections = document.querySelectorAll('h2[id], h3[id]');
+    const navLinks = document.querySelectorAll('.sidebar nav a');
+
+    function updateActiveLink() {
+      let current = '';
+      sections.forEach(section => {
+        const top = section.getBoundingClientRect().top;
+        if (top <= 100) current = section.id;
+      });
+      navLinks.forEach(link => {
+        link.classList.toggle('active', link.getAttribute('href') === '#' + current);
+      });
+    }
+
+    window.addEventListener('scroll', updateActiveLink, { passive: true });
+    updateActiveLink();
+  </script>
+
+</body>
+</html>

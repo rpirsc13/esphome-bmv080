@@ -1,0 +1,170 @@
+substitutions:
+  name: native-esp-w5500
+  friendly_name: Native ESP W5500
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32-c3-devkitm-1
+  variant: esp32c3
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [bmv080]
+
+logger:
+  level: VERBOSE
+  logs:
+    bmv080: VERBOSE
+
+api:
+  encryption:
+    key: !secret api_encryption_key
+
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+web_server:
+  port: 80
+
+ethernet:
+  type: W5500
+  clk_pin: GPIO7
+  mosi_pin: GPIO6
+  miso_pin: GPIO3
+  cs_pin: GPIO10
+  interrupt_pin: GPIO1
+  reset_pin: GPIO0
+
+i2c:
+  id: bus_i2c
+  sda: GPIO5
+  scl: GPIO4
+  scan: true
+
+debug:
+  update_interval: 15s
+
+globals:
+  - id: idle_counter
+    type: uint32_t
+    restore_value: no
+    initial_value: '0'
+
+interval:
+  - interval: 10ms
+    then:
+      - lambda: |-
+          id(idle_counter)++;
+
+bmv080:
+  id: bmv080_sensor
+  i2c_id: bus_i2c
+  address: 0x57
+  mode: continuous
+  measurement_algorithm: high_precision
+  integration_time: 10.0
+  duty_cycling_period: 30
+  obstruction_detection: true
+  vibration_filtering: false
+  update_interval: 5s
+
+sensor:
+  - platform: bmv080
+    bmv080_id: bmv080_sensor
+    pm_1_0:
+      name: "${friendly_name} PM 1.0"
+    pm_2_5:
+      name: "${friendly_name} PM 2.5"
+    pm_10:
+      name: "${friendly_name} PM 10"
+    pm_1_0_count:
+      name: "${friendly_name} PM 1.0 Count"
+    pm_2_5_count:
+      name: "${friendly_name} PM 2.5 Count"
+    pm_10_count:
+      name: "${friendly_name} PM 10 Count"
+    runtime:
+      name: "${friendly_name} BMV080 Runtime"
+
+  - platform: uptime
+    name: ${friendly_name} Uptime
+    update_interval: 30s
+
+  - platform: internal_temperature
+    name: ${friendly_name} Internal Temperature
+    update_interval: 30s
+
+  - platform: template
+    name: ${friendly_name} RAM Used Percent
+    unit_of_measurement: '%'
+    accuracy_decimals: 1
+    update_interval: 15s
+    lambda: |-
+      uint32_t free_heap = esp_get_free_heap_size();
+      uint32_t total_heap = heap_caps_get_total_size(MALLOC_CAP_8BIT);
+      if (total_heap == 0) return 0.0f;
+      float used = 100.0f * (1.0f - ((float)free_heap / (float)total_heap));
+      if (used < 0) used = 0;
+      if (used > 100) used = 100;
+      return used;
+
+  - platform: template
+    name: ${friendly_name} Free Heap Bytes
+    unit_of_measurement: B
+    accuracy_decimals: 0
+    update_interval: 15s
+    lambda: |-
+      return (float)esp_get_free_heap_size();
+
+  - platform: template
+    name: ${friendly_name} CPU Load Est
+    unit_of_measurement: '%'
+    accuracy_decimals: 1
+    update_interval: 5s
+    lambda: |-
+      static uint32_t last = 0;
+      uint32_t current = id(idle_counter);
+      uint32_t diff = current - last;
+      last = current;
+
+      const float max_idle = 500.0f;  // tune if needed
+      float load = 100.0f - (diff / max_idle) * 100.0f;
+
+      if (load < 0) load = 0;
+      if (load > 100) load = 100;
+      return load;
+
+  - platform: debug
+    free:
+      name: ${friendly_name} Heap Free Debug
+    block:
+      name: ${friendly_name} Heap Max Block Debug
+    loop_time:
+      name: ${friendly_name} Loop Time Debug
+
+binary_sensor:
+  - platform: bmv080
+    bmv080_id: bmv080_sensor
+    obstructed:
+      name: "${friendly_name} Sensor Obstructed"
+    out_of_range:
+      name: "${friendly_name} Out of Range"
+
+text_sensor:
+  - platform: ethernet_info
+    ip_address:
+      name: ${friendly_name} IP Address
+    mac_address:
+      name: ${friendly_name} MAC Address
+
+button:
+  - platform: restart
+    name: ${friendly_name} Restart
