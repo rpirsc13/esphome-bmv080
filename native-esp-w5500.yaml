@@ -14,8 +14,8 @@ esp32:
 
 external_components:
   - source:
-      type: local
-      path: components
+      type: git
+      url: https://github.com/sweitzja/esphome-bmv080
     components: [bmv080]
 
 logger:
