@@ -56,6 +56,8 @@ MULTI_CONF = True  # Allow multiple BMV080 instances (different addresses or CS 
 
 # Configuration keys for YAML schema
 CONF_BMV080_ID = "bmv080_id"
+CONF_I2C = "i2c"
+CONF_SPI = "spi"
 CONF_MODE = "mode"
 CONF_MEASUREMENT_ALGORITHM = "measurement_algorithm"
 CONF_INTEGRATION_TIME = "integration_time"
