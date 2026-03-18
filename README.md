@@ -1,6 +1,6 @@
 # ESPHome BMV080 - Bosch Particulate Matter Sensor Component
 
-An [ESPHome](https://esphome.io/) external component for the [Bosch BMV080](https://www.bosch-sensortec.com/products/environmental-sensors/particulate-matter-sensors/bmv080/) particulate matter sensor. Measures PM1.0, PM2.5, and PM10 mass and number concentrations over I2C using the Bosch precompiled SDK.
+An [ESPHome](https://esphome.io/) external component for the [Bosch BMV080](https://www.bosch-sensortec.com/products/environmental-sensors/particulate-matter-sensors/bmv080/) particulate matter sensor. Measures PM1.0, PM2.5, and PM10 mass and number concentrations over **I2C or SPI** using the Bosch precompiled SDK.
 
 ## Features
 
@@ -60,6 +60,8 @@ external_components:
 
 ### 2. Configure the BMV080 Hub
 
+**I2C (default):**
+
 ```yaml
 i2c:
   sda: GPIO21
@@ -68,11 +70,31 @@ i2c:
 
 bmv080:
   id: bmv080_sensor
-  address: 0x57
+  i2c:
+    address: 0x57
   mode: continuous
   measurement_algorithm: high_precision
   update_interval: 5s
 ```
+
+**SPI (e.g. SparkFun breakout in SPI mode):**
+
+```yaml
+spi:
+  clk_pin: GPIO18
+  miso_pin: GPIO19
+  mosi_pin: GPIO23
+
+bmv080:
+  id: bmv080_sensor
+  spi:
+    cs_pin: GPIO5
+  mode: continuous
+  measurement_algorithm: high_precision
+  update_interval: 5s
+```
+
+> **Note:** Configure the BMV080 breakout for SPI mode via jumpers before use. See your breakout's documentation.
 
 ### 3. Add Sensors
 
@@ -108,16 +130,30 @@ binary_sensor:
 
 ### Hub Configuration
 
+Configure **either** I2C **or** SPI (exactly one required):
+
+**I2C:**
+
 ```yaml
 bmv080:
-  # Required
   id: bmv080_sensor
+  i2c:
+    address: 0x57      # 0x54, 0x55, 0x56, or 0x57 (default: 0x57)
+    i2c_id: bus_i2c    # Optional: if you have multiple I2C buses
 
-  # I2C address — 0x54, 0x55, 0x56, or 0x57 (default: 0x57)
-  address: 0x57
+  # ... measurement options below ...
+```
 
-  # If you have multiple I2C buses, specify which one
-  # i2c_id: bus_i2c
+**SPI:**
+
+```yaml
+bmv080:
+  id: bmv080_sensor
+  spi:
+    cs_pin: GPIO5      # Chip select pin (required for SPI)
+    spi_id: spi_bus   # Optional: if you have multiple SPI buses
+    data_rate: 1MHz   # Optional: default 1MHz
+    spi_mode: MODE0   # Optional: MODE0, MODE1, MODE2, or MODE3
 
   # Measurement mode (default: continuous)
   #   continuous  — Always on, data every ~1 second, higher power
@@ -362,6 +398,19 @@ The BMV080 uses a non-standard **16-bit word-oriented** I2C protocol:
 | GND | GND | Ground |
 
 The SparkFun breakout includes 2.2k pull-up resistors on SDA/SCL. If using a bare BMV080 chip, add 2.2k-4.7k pull-ups to 3.3V on both I2C lines.
+
+### SparkFun BMV080 Breakout (SPI Mode)
+
+Configure the board for SPI mode via jumpers on the back before wiring. Solder headers and connect:
+
+| BMV080 Pin | ESP32 Pin | Description |
+|------------|-----------|-------------|
+| 3.3V | 3.3V | Power |
+| GND | GND | Ground |
+| SCLK | GPIO18 | SPI clock |
+| MOSI | GPIO23 | SPI data out (ESP → BMV080) |
+| MISO | GPIO19 | SPI data in (BMV080 → ESP) |
+| CS | GPIO5 | Chip select |
 
 ### I2C Address Selection
 

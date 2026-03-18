@@ -63,23 +63,7 @@ static const char *const TAG = "bmv080";
 // =============================================================================
 
 /**
- * @brief I2C read callback for the Bosch SDK.
- *
- * The SDK calls this to read a register or data block from the BMV080. The protocol:
- * 1. Write a 2-byte header (with I2C mode shift applied) as a separate I2C write
- * 2. Read payload_length * 2 bytes from the sensor
- * 3. Reassemble raw bytes into uint16_t words (MSB-first byte order)
- *
- * The header shift (header << 1) is required by the BMV080 I2C protocol. In SPI mode,
- * the header is used as-is. Since we're I2C-only, we always apply the shift.
- *
- * Reads are chunked to 32 bytes per I2C transaction, matching typical I2C buffer limits.
- *
- * @param handle The sercom handle (actually a BMV080Component pointer)
- * @param header The 16-bit register/command header from the SDK
- * @param payload Output buffer for uint16_t words to be read
- * @param payload_length Number of 16-bit words to read
- * @return 0 on success, negative on error
+ * @brief Read callback for the Bosch SDK — dispatches to transport_read().
  */
 int8_t BMV080Component::read_cb_(bmv080_sercom_handle_t handle, uint16_t header,
                                   uint16_t *payload, uint16_t payload_length) {
@@ -87,78 +71,12 @@ int8_t BMV080Component::read_cb_(bmv080_sercom_handle_t handle, uint16_t header,
     ESP_LOGE(TAG, "read_cb: null handle");
     return -1;
   }
-
-  // Cast the opaque sercom handle back to our component pointer
   auto *comp = (BMV080Component *) handle;
-
-  // Apply I2C mode header shift — BMV080 protocol requirement
-  // In I2C mode, the header must be shifted left by 1 bit
-  uint16_t i2c_header = header << 1;
-
-  ESP_LOGVV(TAG, "read_cb: header=0x%04X i2c_header=0x%04X len=%u", header, i2c_header, payload_length);
-
-  // Prepare 2-byte header for I2C write (MSB-first)
-  uint8_t header_bytes[2];
-  header_bytes[0] = (uint8_t) (i2c_header >> 8);   // High byte
-  header_bytes[1] = (uint8_t) (i2c_header & 0xFF);  // Low byte
-
-  // Step 1: Write the 2-byte header to tell the sensor what to read
-  auto err = comp->write(header_bytes, 2);
-  if (err != i2c::ERROR_OK) {
-    ESP_LOGE(TAG, "read_cb: failed to write header, i2c error=%d", (int) err);
-    return -2;
-  }
-
-  // Step 2: Read payload bytes from the sensor
-  // Each uint16_t word = 2 bytes, so total bytes = payload_length * 2
-  size_t byte_count = payload_length * 2;
-  uint8_t buffer[512];  // Stack buffer for raw bytes (max 256 words)
-
-  if (byte_count > sizeof(buffer)) {
-    ESP_LOGE(TAG, "read_cb: payload too large: %u bytes", byte_count);
-    return -2;
-  }
-
-  // Read in chunks of 32 bytes — I2C typically has a per-transaction limit.
-  // The ESP-IDF I2C driver can handle larger reads, but chunking ensures
-  // compatibility across frameworks and bus configurations.
-  size_t bytes_read = 0;
-  while (bytes_read < byte_count) {
-    size_t chunk = byte_count - bytes_read;
-    if (chunk > 32)
-      chunk = 32;
-    err = comp->read(buffer + bytes_read, chunk);
-    if (err != i2c::ERROR_OK) {
-      ESP_LOGE(TAG, "read_cb: failed to read chunk at offset %u, i2c error=%d", bytes_read, (int) err);
-      return -2;
-    }
-    bytes_read += chunk;
-  }
-
-  // Step 3: Reassemble raw bytes into uint16_t words (MSB-first byte order)
-  // Each pair of consecutive bytes forms one word: [MSB][LSB] -> (MSB << 8) | LSB
-  for (uint16_t i = 0; i < payload_length; i++) {
-    payload[i] = ((uint16_t) buffer[i * 2] << 8) | buffer[i * 2 + 1];
-  }
-
-  return 0;  // Success
+  return comp->transport_read(header, payload, payload_length);
 }
 
 /**
- * @brief I2C write callback for the Bosch SDK.
- *
- * The SDK calls this to write a register or data block to the BMV080. The protocol:
- * 1. Build a single buffer containing: [header_MSB][header_LSB][word0_MSB][word0_LSB]...
- * 2. Send the entire buffer in one I2C write transaction
- *
- * Unlike reads (which use separate header write + payload read transactions),
- * writes send everything in a single I2C transaction for atomicity.
- *
- * @param handle The sercom handle (actually a BMV080Component pointer)
- * @param header The 16-bit register/command header from the SDK
- * @param payload Input buffer of uint16_t words to write
- * @param payload_length Number of 16-bit words to write
- * @return 0 on success, negative on error
+ * @brief Write callback for the Bosch SDK — dispatches to transport_write().
  */
 int8_t BMV080Component::write_cb_(bmv080_sercom_handle_t handle, uint16_t header,
                                    const uint16_t *payload, uint16_t payload_length) {
@@ -166,41 +84,131 @@ int8_t BMV080Component::write_cb_(bmv080_sercom_handle_t handle, uint16_t header
     ESP_LOGE(TAG, "write_cb: null handle");
     return -1;
   }
-
   auto *comp = (BMV080Component *) handle;
+  return comp->transport_write(header, payload, payload_length);
+}
 
-  // Apply I2C mode header shift
+// =============================================================================
+// BMV080I2CComponent — I2C transport (header << 1 per BMV080 protocol)
+// =============================================================================
+
+int8_t BMV080I2CComponent::transport_read(uint16_t header, uint16_t *payload,
+                                         uint16_t payload_length) {
+  uint16_t i2c_header = header << 1;  // BMV080 I2C protocol requirement
+  ESP_LOGVV(TAG, "I2C read: header=0x%04X i2c_header=0x%04X len=%u", header,
+            i2c_header, payload_length);
+
+  uint8_t header_bytes[2] = {(uint8_t)(i2c_header >> 8), (uint8_t)(i2c_header & 0xFF)};
+  auto err = this->write(header_bytes, 2);
+  if (err != i2c::ERROR_OK) {
+    ESP_LOGE(TAG, "I2C read: failed to write header, error=%d", (int)err);
+    return -2;
+  }
+
+  size_t byte_count = payload_length * 2;
+  uint8_t buffer[512];
+  if (byte_count > sizeof(buffer)) {
+    ESP_LOGE(TAG, "I2C read: payload too large: %u bytes", byte_count);
+    return -2;
+  }
+
+  size_t bytes_read = 0;
+  while (bytes_read < byte_count) {
+    size_t chunk = (byte_count - bytes_read > 32) ? 32 : (byte_count - bytes_read);
+    err = this->read(buffer + bytes_read, chunk);
+    if (err != i2c::ERROR_OK) {
+      ESP_LOGE(TAG, "I2C read: failed at offset %u, error=%d", bytes_read, (int)err);
+      return -2;
+    }
+    bytes_read += chunk;
+  }
+
+  for (uint16_t i = 0; i < payload_length; i++)
+    payload[i] = ((uint16_t)buffer[i * 2] << 8) | buffer[i * 2 + 1];
+  return 0;
+}
+
+int8_t BMV080I2CComponent::transport_write(uint16_t header,
+                                           const uint16_t *payload,
+                                           uint16_t payload_length) {
   uint16_t i2c_header = header << 1;
+  ESP_LOGVV(TAG, "I2C write: header=0x%04X i2c_header=0x%04X len=%u", header,
+            i2c_header, payload_length);
 
-  ESP_LOGVV(TAG, "write_cb: header=0x%04X i2c_header=0x%04X len=%u", header, i2c_header, payload_length);
-
-  // Build a single contiguous buffer: 2 header bytes + payload bytes (MSB-first)
   size_t total_bytes = 2 + payload_length * 2;
   uint8_t buffer[512];
-
   if (total_bytes > sizeof(buffer)) {
-    ESP_LOGE(TAG, "write_cb: payload too large: %u bytes", total_bytes);
+    ESP_LOGE(TAG, "I2C write: payload too large: %u bytes", total_bytes);
     return -3;
   }
-
-  // Header bytes (MSB-first)
-  buffer[0] = (uint8_t) (i2c_header >> 8);
-  buffer[1] = (uint8_t) (i2c_header & 0xFF);
-
-  // Payload words -> bytes (MSB-first)
+  buffer[0] = (uint8_t)(i2c_header >> 8);
+  buffer[1] = (uint8_t)(i2c_header & 0xFF);
   for (uint16_t i = 0; i < payload_length; i++) {
-    buffer[2 + i * 2] = (uint8_t) (payload[i] >> 8);
-    buffer[2 + i * 2 + 1] = (uint8_t) (payload[i] & 0xFF);
+    buffer[2 + i * 2] = (uint8_t)(payload[i] >> 8);
+    buffer[2 + i * 2 + 1] = (uint8_t)(payload[i] & 0xFF);
   }
-
-  // Send everything in one I2C write transaction
-  auto err = comp->write(buffer, total_bytes);
+  auto err = this->write(buffer, total_bytes);
   if (err != i2c::ERROR_OK) {
-    ESP_LOGE(TAG, "write_cb: i2c write failed, error=%d, total_bytes=%u", (int) err, total_bytes);
+    ESP_LOGE(TAG, "I2C write failed, error=%d", (int)err);
     return -3;
   }
+  return 0;
+}
 
-  return 0;  // Success
+void BMV080I2CComponent::dump_config_bus_() { LOG_I2C_DEVICE(this); }
+
+// =============================================================================
+// BMV080SPIComponent — SPI transport (header as-is, no shift)
+// =============================================================================
+
+int8_t BMV080SPIComponent::transport_read(uint16_t header, uint16_t *payload,
+                                          uint16_t payload_length) {
+  ESP_LOGVV(TAG, "SPI read: header=0x%04X len=%u", header, payload_length);
+
+  this->enable();
+  uint8_t header_bytes[2] = {(uint8_t)(header >> 8), (uint8_t)(header & 0xFF)};
+  this->write_array(header_bytes, 2);
+
+  size_t byte_count = payload_length * 2;
+  uint8_t buffer[512];
+  if (byte_count > sizeof(buffer)) {
+    ESP_LOGE(TAG, "SPI read: payload too large: %u bytes", byte_count);
+    this->disable();
+    return -2;
+  }
+  this->read_array(buffer, byte_count);
+  this->disable();
+
+  for (uint16_t i = 0; i < payload_length; i++)
+    payload[i] = ((uint16_t)buffer[i * 2] << 8) | buffer[i * 2 + 1];
+  return 0;
+}
+
+int8_t BMV080SPIComponent::transport_write(uint16_t header,
+                                           const uint16_t *payload,
+                                           uint16_t payload_length) {
+  ESP_LOGVV(TAG, "SPI write: header=0x%04X len=%u", header, payload_length);
+
+  size_t total_bytes = 2 + payload_length * 2;
+  uint8_t buffer[512];
+  if (total_bytes > sizeof(buffer)) {
+    ESP_LOGE(TAG, "SPI write: payload too large: %u bytes", total_bytes);
+    return -3;
+  }
+  buffer[0] = (uint8_t)(header >> 8);
+  buffer[1] = (uint8_t)(header & 0xFF);
+  for (uint16_t i = 0; i < payload_length; i++) {
+    buffer[2 + i * 2] = (uint8_t)(payload[i] >> 8);
+    buffer[2 + i * 2 + 1] = (uint8_t)(payload[i] & 0xFF);
+  }
+  this->enable();
+  this->write_array(buffer, total_bytes);
+  this->disable();
+  return 0;
+}
+
+void BMV080SPIComponent::dump_config_bus_() {
+  ESP_LOGCONFIG(TAG, "  Interface: SPI");
 }
 
 /**
@@ -461,9 +469,9 @@ bool BMV080Component::init_sensor_() {
 
   // --- Open sensor handle ---
   // Pass 'this' as the sercom_handle. The SDK stores this opaque pointer and
-  // passes it back to read_cb_/write_cb_ on every I2C operation. We cast it
-  // back to BMV080Component* in the callbacks to access ESPHome I2C methods.
-  ESP_LOGD(TAG, "Opening BMV080 sensor handle (I2C address: 0x%02X)...", this->address_);
+  // passes it back to read_cb_/write_cb_ on every bus operation. We cast it
+  // back to BMV080Component* in the callbacks to dispatch to transport_read/write.
+  ESP_LOGD(TAG, "Opening BMV080 sensor handle...");
   status = bmv080_open(&this->handle_, (bmv080_sercom_handle_t) this,
                        (bmv080_callback_read_t) read_cb_,
                        (bmv080_callback_write_t) write_cb_,
@@ -774,7 +782,7 @@ void BMV080Component::dump_config() {
   ESP_LOGCONFIG(TAG, "  Obstruction Detection: %s", YESNO(this->obstruction_detection_));
   ESP_LOGCONFIG(TAG, "  Vibration Filtering: %s", YESNO(this->vibration_filtering_));
   ESP_LOGCONFIG(TAG, "  Task Stack: 64KB (dedicated FreeRTOS task)");
-  LOG_I2C_DEVICE(this);
+  this->dump_config_bus_();
   if (this->is_failed()) {
     ESP_LOGE(TAG, "  Communication with BMV080 failed!");
   }

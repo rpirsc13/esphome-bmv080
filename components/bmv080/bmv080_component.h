@@ -36,6 +36,7 @@
 
 #include "esphome/core/component.h"
 #include "esphome/components/i2c/i2c.h"
+#include "esphome/components/spi/spi.h"
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 
@@ -85,18 +86,12 @@ enum MeasurementAlgorithm {
 };
 
 /**
- * @brief ESPHome component for the Bosch BMV080 particulate matter sensor.
+ * @brief Base class for the Bosch BMV080 particulate matter sensor.
  *
- * Inherits from PollingComponent (provides setup/loop/update lifecycle with
- * configurable update_interval) and I2CDevice (provides read/write/address_).
- *
- * Usage:
- *   Instantiated and configured by __init__.py code generation.
- *   Sensors registered by sensor.py and binary_sensor.py.
- *   All heavy lifting (SDK init + data acquisition) runs in a separate
- *   FreeRTOS task to avoid blocking the main ESPHome loop.
+ * Contains all common logic: FreeRTOS task, SDK lifecycle, sensor registration.
+ * Transport (I2C or SPI) is implemented by derived classes via transport_read/write.
  */
-class BMV080Component : public PollingComponent, public i2c::I2CDevice {
+class BMV080Component : public PollingComponent {
  public:
   // --- ESPHome Component Lifecycle ---
 
@@ -111,6 +106,9 @@ class BMV080Component : public PollingComponent, public i2c::I2CDevice {
 
   /** @brief Logs component configuration at startup. */
   void dump_config() override;
+
+  /** @brief Logs bus-specific config (I2C address or SPI). Override in derived. */
+  virtual void dump_config_bus_() = 0;
 
   /**
    * @brief Returns LATE setup priority to run after network components.
@@ -161,27 +159,28 @@ class BMV080Component : public PollingComponent, public i2c::I2CDevice {
   // ESPHome's I2C methods.
 
   /**
-   * @brief I2C read callback for the Bosch SDK.
-   *
-   * Translates the SDK's 16-bit word-oriented read protocol into ESPHome I2C calls:
-   * 1. Shifts header left by 1 for I2C mode (BMV080 protocol requirement)
-   * 2. Writes 2-byte header as a separate I2C transaction
-   * 3. Reads payload bytes in 32-byte chunks (I2C transaction size limit)
-   * 4. Reassembles bytes into uint16_t words (MSB-first)
+   * @brief Read callback for the Bosch SDK — dispatches to transport_read().
    */
   static int8_t read_cb_(bmv080_sercom_handle_t handle, uint16_t header,
                          uint16_t *payload, uint16_t payload_length);
 
   /**
-   * @brief I2C write callback for the Bosch SDK.
-   *
-   * Translates the SDK's 16-bit word-oriented write protocol into ESPHome I2C calls:
-   * 1. Shifts header left by 1 for I2C mode
-   * 2. Builds a single buffer with 2-byte header + all payload bytes (MSB-first)
-   * 3. Sends the entire buffer in one I2C write transaction
+   * @brief Write callback for the Bosch SDK — dispatches to transport_write().
    */
   static int8_t write_cb_(bmv080_sercom_handle_t handle, uint16_t header,
                           const uint16_t *payload, uint16_t payload_length);
+
+  /**
+   * @brief Transport-specific read. I2C: header<<1, chunked reads. SPI: header as-is.
+   */
+  virtual int8_t transport_read(uint16_t header, uint16_t *payload,
+                               uint16_t payload_length) = 0;
+
+  /**
+   * @brief Transport-specific write. I2C: header<<1. SPI: header as-is.
+   */
+  virtual int8_t transport_write(uint16_t header, const uint16_t *payload,
+                                uint16_t payload_length) = 0;
 
   /**
    * @brief Delay callback for the Bosch SDK.
@@ -272,6 +271,33 @@ class BMV080Component : public PollingComponent, public i2c::I2CDevice {
   sensor::Sensor *runtime_sensor_{nullptr};       ///< Measurement runtime
   binary_sensor::BinarySensor *obstructed_sensor_{nullptr};   ///< Obstruction flag
   binary_sensor::BinarySensor *out_of_range_sensor_{nullptr}; ///< Out-of-range flag
+};
+
+/**
+ * @brief BMV080 over I2C. Header is shifted left by 1 per BMV080 I2C protocol.
+ */
+class BMV080I2CComponent : public BMV080Component, public i2c::I2CDevice {
+ public:
+  int8_t transport_read(uint16_t header, uint16_t *payload,
+                       uint16_t payload_length) override;
+  int8_t transport_write(uint16_t header, const uint16_t *payload,
+                        uint16_t payload_length) override;
+  void dump_config_bus_() override;
+};
+
+/**
+ * @brief BMV080 over SPI. Header used as-is (no shift). MSB first, Mode 0.
+ */
+class BMV080SPIComponent
+    : public BMV080Component,
+      public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
+                            spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_1MHZ> {
+ public:
+  int8_t transport_read(uint16_t header, uint16_t *payload,
+                       uint16_t payload_length) override;
+  int8_t transport_write(uint16_t header, const uint16_t *payload,
+                        uint16_t payload_length) override;
+  void dump_config_bus_() override;
 };
 
 }  // namespace bmv080

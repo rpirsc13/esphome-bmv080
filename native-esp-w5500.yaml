@@ -66,8 +66,9 @@ interval:
 
 bmv080:
   id: bmv080_sensor
-  i2c_id: bus_i2c
-  address: 0x57
+  i2c:
+    address: 0x57
+    i2c_id: bus_i2c
   mode: continuous
   measurement_algorithm: high_precision
   integration_time: 10.0

@@ -16,10 +16,23 @@ Hub/Platform Pattern:
   - binary_sensor.py defines the binary sensor platform (obstructed, out_of_range)
   - Sensors reference the hub via bmv080_id
 
-YAML Example:
+The BMV080 supports both I2C and SPI. Configure one or the other via cv.requires_one.
+
+YAML Example (I2C):
   bmv080:
     id: bmv080_sensor
-    address: 0x57
+    i2c:
+      address: 0x57
+    mode: continuous
+    measurement_algorithm: high_precision
+    integration_time: 10.0
+    update_interval: 5s
+
+YAML Example (SPI):
+  bmv080:
+    id: bmv080_sensor
+    spi:
+      cs_pin: GPIO5
     mode: continuous
     measurement_algorithm: high_precision
     integration_time: 10.0
@@ -28,7 +41,7 @@ YAML Example:
 
 import esphome.codegen as cg
 import esphome.config_validation as cv
-from esphome.components import i2c
+from esphome.components import i2c, spi
 from esphome.const import CONF_ID
 import os
 import logging
@@ -37,9 +50,9 @@ _LOGGER = logging.getLogger(__name__)
 
 # Component metadata
 CODEOWNERS = ["@sweitzja"]
-DEPENDENCIES = ["i2c"]  # BMV080 communicates over I2C
+DEPENDENCIES = []  # Resolved at config time: i2c or spi
 AUTO_LOAD = ["sensor", "binary_sensor"]  # Auto-load sensor platforms
-MULTI_CONF = True  # Allow multiple BMV080 instances (different I2C addresses)
+MULTI_CONF = True  # Allow multiple BMV080 instances (different addresses or CS pins)
 
 # Configuration keys for YAML schema
 CONF_BMV080_ID = "bmv080_id"
@@ -51,9 +64,15 @@ CONF_OBSTRUCTION_DETECTION = "obstruction_detection"
 CONF_VIBRATION_FILTERING = "vibration_filtering"
 
 # C++ namespace and class references for code generation
+# BMV080Component is the base type used by sensor/binary_sensor platforms (use_id)
+# BMV080I2CComponent and BMV080SPIComponent are the concrete implementations
 bmv080_ns = cg.esphome_ns.namespace("bmv080")
-BMV080Component = bmv080_ns.class_(
-    "BMV080Component", cg.PollingComponent, i2c.I2CDevice
+BMV080Component = bmv080_ns.class_("BMV080Component", cg.PollingComponent)
+BMV080I2CComponent = bmv080_ns.class_(
+    "BMV080I2CComponent", BMV080Component, i2c.I2CDevice
+)
+BMV080SPIComponent = bmv080_ns.class_(
+    "BMV080SPIComponent", BMV080Component, spi.SPIDevice
 )
 
 # Measurement mode enum mapping (YAML string -> C++ enum value)
@@ -78,8 +97,8 @@ ALGORITHM_OPTIONS = {
 }
 
 # YAML configuration schema
-# Extends both PollingComponent (for update_interval) and I2CDevice (for address, i2c_id)
-CONFIG_SCHEMA = (
+# Nested i2c or spi config — exactly one required
+CONFIG_SCHEMA = cv.All(
     cv.Schema(
         {
             cv.GenerateID(): cv.declare_id(BMV080Component),
@@ -105,10 +124,12 @@ CONFIG_SCHEMA = (
             cv.Optional(CONF_OBSTRUCTION_DETECTION, default=True): cv.boolean,
             # Enable/disable vibration noise filtering
             cv.Optional(CONF_VIBRATION_FILTERING, default=False): cv.boolean,
+            # Bus: exactly one of i2c or spi required
+            cv.Optional(CONF_I2C): i2c.i2c_device_schema(0x57),
+            cv.Optional(CONF_SPI): spi.spi_device_schema(cs_pin_required=True),
         }
-    )
-    .extend(cv.polling_component_schema("1s"))  # Default update_interval: 1s
-    .extend(i2c.i2c_device_schema(0x57))  # Default I2C address: 0x57
+    ).extend(cv.polling_component_schema("1s")),
+    cv.requires_one(CONF_I2C, CONF_SPI),
 )
 
 
@@ -116,16 +137,21 @@ async def to_code(config):
     """Generate C++ code from the YAML configuration.
 
     This function:
-    1. Creates a BMV080Component instance
-    2. Registers it with ESPHome's component and I2C systems
+    1. Creates a BMV080I2CComponent or BMV080SPIComponent based on config
+    2. Registers it with ESPHome's component and I2C/SPI bus
     3. Passes all configuration values to the C++ setters
     4. Discovers and adds Bosch SDK library paths as build flags
     5. Links the precompiled SDK static libraries
     """
-    # Create the C++ component variable
-    var = cg.new_Pvariable(config[CONF_ID])
+    # Create the C++ component variable — I2C or SPI based on config
+    if CONF_I2C in config:
+        var = cg.new_Pvariable(config[CONF_ID], BMV080I2CComponent)
+        await i2c.register_i2c_device(var, config[CONF_I2C])
+    else:
+        var = cg.new_Pvariable(config[CONF_ID], BMV080SPIComponent)
+        await spi.register_spi_device(var, config[CONF_SPI])
+
     await cg.register_component(var, config)
-    await i2c.register_i2c_device(var, config)
 
     # Pass configuration values to C++ setters
     cg.add(var.set_mode(config[CONF_MODE]))

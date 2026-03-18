@@ -1,0 +1,153 @@
+# Polvarine ESP32-S3: BMV080 (SPI) + BME690 (I2C)
+# BMV080: SPI2, MISO=13, MOSI=11, CLK=12, CS=10, 1MHz
+# BME690: I2C, SCL=21, SDA=14, addr=0x76, 100kHz
+
+substitutions:
+  name: polvarine-esp
+  friendly_name: Polvarine ESP
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32-s3-devkitc-1
+  variant: esp32s3
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: git
+      url: https://github.com/rpirsc13/esphome-bmv080
+    components: [bmv080]
+  - source: github://pr#13480
+    components: [bme690]
+    refresh: 1h
+
+logger:
+  level: VERBOSE
+  logs:
+    bmv080: VERBOSE
+
+api:
+
+ota:
+  - platform: esphome
+
+web_server:
+  port: 80
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+# SPI bus for BMV080 — SPI2_HOST, 1MHz
+spi:
+  id: spi_bmv080
+  clk_pin: GPIO12
+  miso_pin: GPIO13
+  mosi_pin: GPIO11
+  interface: spi2
+
+# I2C bus for BME690 — 100kHz
+i2c:
+  id: bus_i2c
+  sda: GPIO14
+  scl: GPIO21
+  frequency: 100kHz
+  scan: true
+
+# BMV080 over SPI
+bmv080:
+  id: bmv080_sensor
+  spi:
+    spi_id: spi_bmv080
+    cs_pin: GPIO10
+    data_rate: 1MHz
+    spi_mode: MODE0
+  mode: continuous
+  measurement_algorithm: high_precision
+  integration_time: 10.0
+  duty_cycling_period: 30
+  obstruction_detection: true
+  vibration_filtering: false
+  update_interval: 5s
+
+# BME690 over I2C — requires libalgobsec.a from Bosch
+# Download from https://www.bosch-sensortec.com/software-tools/software/bme688-and-bme690-software/
+bme690:
+  id: bme690_internal
+  bsec_library: /path/to/libalgobsec.a  # TODO: set path to your libalgobsec.a
+  i2c_id: bus_i2c
+  address: 0x76
+  update_interval: 5s
+  state_save_interval: 6h
+
+sensor:
+  - platform: bmv080
+    bmv080_id: bmv080_sensor
+    pm_1_0:
+      name: "${friendly_name} PM 1.0"
+    pm_2_5:
+      name: "${friendly_name} PM 2.5"
+    pm_10:
+      name: "${friendly_name} PM 10"
+    pm_1_0_count:
+      name: "${friendly_name} PM 1.0 Count"
+    pm_2_5_count:
+      name: "${friendly_name} PM 2.5 Count"
+    pm_10_count:
+      name: "${friendly_name} PM 10 Count"
+    runtime:
+      name: "${friendly_name} BMV080 Runtime"
+
+  - platform: bme690
+    bme690_id: bme690_internal
+    temperature:
+      name: "${friendly_name} Temperature"
+    humidity:
+      name: "${friendly_name} Humidity"
+    pressure:
+      name: "${friendly_name} Pressure"
+    gas_resistance:
+      name: "${friendly_name} Gas Resistance"
+    iaq:
+      name: "${friendly_name} IAQ"
+    static_iaq:
+      name: "${friendly_name} Static IAQ"
+    co2_equivalent:
+      name: "${friendly_name} CO2 Equivalent"
+    breath_voc_equivalent:
+      name: "${friendly_name} Breath VOC Equivalent"
+
+  - platform: uptime
+    name: ${friendly_name} Uptime
+    update_interval: 30s
+
+  - platform: wifi_signal
+    name: ${friendly_name} WiFi Signal
+    update_interval: 60s
+
+binary_sensor:
+  - platform: bmv080
+    bmv080_id: bmv080_sensor
+    obstructed:
+      name: "${friendly_name} PM Sensor Obstructed"
+    out_of_range:
+      name: "${friendly_name} PM Out of Range"
+
+text_sensor:
+  - platform: bme690
+    bme690_id: bme690_internal
+    iaq_accuracy:
+      name: "${friendly_name} IAQ Accuracy"
+  - platform: wifi_info
+    ip_address:
+      name: ${friendly_name} IP Address
+    mac_address:
+      name: ${friendly_name} MAC Address
+
+button:
+  - platform: restart
+    name: ${friendly_name} Restart
