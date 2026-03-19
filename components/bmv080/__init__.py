@@ -145,12 +145,18 @@ async def to_code(config):
     4. Discovers and adds Bosch SDK library paths as build flags
     5. Links the precompiled SDK static libraries
     """
-    # Create the C++ component variable — I2C or SPI based on config
+    # Instantiate concrete type: declare_id() types the pointer as BMV080Component*,
+    # but new_Pvariable(id, SubClass) would pass SubClass as ctor args to BMV080Component.
+    # Copy the ID and set .type to the concrete class, then new_Pvariable(id) with no args.
     if CONF_I2C in config:
-        var = cg.new_Pvariable(config[CONF_ID], BMV080I2CComponent)
+        hub_id = config[CONF_ID].copy()
+        hub_id.type = BMV080I2CComponent
+        var = cg.new_Pvariable(hub_id)
         await i2c.register_i2c_device(var, config[CONF_I2C])
     else:
-        var = cg.new_Pvariable(config[CONF_ID], BMV080SPIComponent)
+        hub_id = config[CONF_ID].copy()
+        hub_id.type = BMV080SPIComponent
+        var = cg.new_Pvariable(hub_id)
         await spi.register_spi_device(var, config[CONF_SPI])
 
     await cg.register_component(var, config)
