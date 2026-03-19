@@ -16,7 +16,7 @@ Hub/Platform Pattern:
   - binary_sensor.py defines the binary sensor platform (obstructed, out_of_range)
   - Sensors reference the hub via bmv080_id
 
-The BMV080 supports both I2C and SPI. Configure one or the other via cv.requires_one.
+The BMV080 supports both I2C and SPI. Configure one or the other via cv.has_exactly_one_key.
 
 YAML Example (I2C):
   bmv080:
@@ -131,7 +131,7 @@ CONFIG_SCHEMA = cv.All(
             cv.Optional(CONF_SPI): spi.spi_device_schema(cs_pin_required=True),
         }
     ).extend(cv.polling_component_schema("1s")),
-    cv.requires_one(CONF_I2C, CONF_SPI),
+    cv.has_exactly_one_key(CONF_I2C, CONF_SPI),
 )
 
 
