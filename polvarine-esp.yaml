@@ -21,9 +21,11 @@ external_components:
       type: git
       url: https://github.com/rpirsc13/esphome-bmv080
     components: [bmv080]
-  - source: github://pr#13480
+  # Patched BME690 (ESP32-C3 + C6); vendored in ./components/bme690 — not PR #13480
+  - source:
+      type: local
+      path: components
     components: [bme690]
-    refresh: 1h
 
 logger:
   level: VERBOSE
