@@ -122,7 +122,10 @@ class BMV080Component : public PollingComponent {
 
   // --- Configuration Setters (called by generated code from __init__.py) ---
 
-  void set_mode(MeasurementMode mode) { this->mode_ = mode; }
+  /** Measurement mode (continuous vs duty_cycle). Named set_measurement_mode to avoid
+   *  colliding with spi::SPIDevice::set_mode(SPIMode) on BMV080SPIComponent.
+   */
+  void set_measurement_mode(MeasurementMode mode) { this->mode_ = mode; }
   void set_measurement_algorithm(MeasurementAlgorithm algo) { this->algorithm_ = algo; }
   void set_integration_time(float time) { this->integration_time_ = time; }
   void set_duty_cycling_period(uint16_t period) { this->duty_cycling_period_ = period; }

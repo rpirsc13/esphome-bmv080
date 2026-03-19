@@ -145,24 +145,23 @@ async def to_code(config):
     4. Discovers and adds Bosch SDK library paths as build flags
     5. Links the precompiled SDK static libraries
     """
-    # Instantiate concrete type: declare_id() types the pointer as BMV080Component*,
-    # but new_Pvariable(id, SubClass) would pass SubClass as ctor args to BMV080Component.
-    # Copy the ID and set .type to the concrete class, then new_Pvariable(id) with no args.
+    # Instantiate concrete type: declare_id() sets id.type to BMV080Component.
+    # new_Pvariable(id, X) passes X as *constructor args* to id.type — not the subclass.
+    # Override id.type in place, then new_Pvariable(id) with no args → new BMV080SPIComponent().
     if CONF_I2C in config:
-        hub_id = config[CONF_ID].copy()
-        hub_id.type = BMV080I2CComponent
-        var = cg.new_Pvariable(hub_id)
+        config[CONF_ID].type = BMV080I2CComponent
+        var = cg.new_Pvariable(config[CONF_ID])
         await i2c.register_i2c_device(var, config[CONF_I2C])
     else:
-        hub_id = config[CONF_ID].copy()
-        hub_id.type = BMV080SPIComponent
-        var = cg.new_Pvariable(hub_id)
+        config[CONF_ID].type = BMV080SPIComponent
+        var = cg.new_Pvariable(config[CONF_ID])
         await spi.register_spi_device(var, config[CONF_SPI])
 
     await cg.register_component(var, config)
 
-    # Pass configuration values to C++ setters
-    cg.add(var.set_mode(config[CONF_MODE]))
+    # Use set_measurement_mode — not set_mode — or SPI's register_spi_device would
+    # call the wrong overload (MeasurementMode vs SPIMode).
+    cg.add(var.set_measurement_mode(config[CONF_MODE]))
     cg.add(var.set_measurement_algorithm(config[CONF_MEASUREMENT_ALGORITHM]))
     cg.add(var.set_integration_time(config[CONF_INTEGRATION_TIME]))
     cg.add(var.set_duty_cycling_period(config[CONF_DUTY_CYCLING_PERIOD]))
