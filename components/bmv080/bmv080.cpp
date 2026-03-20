@@ -161,6 +161,13 @@ void BMV080I2CComponent::dump_config_bus_() { LOG_I2C_DEVICE(this); }
 // BMV080SPIComponent — SPI transport (header as-is, no shift)
 // =============================================================================
 
+void BMV080SPIComponent::setup() {
+  // SPIDevice does not inherit Component; ESPHome never calls spi_setup() unless we do.
+  // Without this, enable()/read_array()/write_array() log "SPIDevice not initialised".
+  this->spi_setup();
+  BMV080Component::setup();
+}
+
 int8_t BMV080SPIComponent::transport_read(uint16_t header, uint16_t *payload,
                                           uint16_t payload_length) {
   ESP_LOGVV(TAG, "SPI read: header=0x%04X len=%u", header, payload_length);

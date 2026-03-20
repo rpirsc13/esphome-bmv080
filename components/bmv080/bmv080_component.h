@@ -296,6 +296,9 @@ class BMV080SPIComponent
       public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
                             spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_1MHZ> {
  public:
+  /** Registers this device with the SPI bus (required before any enable/read/write). */
+  void setup() override;
+
   int8_t transport_read(uint16_t header, uint16_t *payload,
                        uint16_t payload_length) override;
   int8_t transport_write(uint16_t header, const uint16_t *payload,
