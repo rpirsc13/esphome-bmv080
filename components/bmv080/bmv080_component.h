@@ -37,8 +37,12 @@
 #include "esphome/core/component.h"
 #include "esphome/components/i2c/i2c.h"
 #include "esphome/components/spi/spi.h"
-#ifdef USE_ESP32
+// External components may not receive -DUSE_ESP32; detect ESP-IDF SPI by header instead.
+#if __has_include("driver/spi_master.h")
+#define BMV080_HAVE_ESP_IDF_SPI 1
 #include "driver/spi_master.h"
+#else
+#define BMV080_HAVE_ESP_IDF_SPI 0
 #endif
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
@@ -302,7 +306,7 @@ class BMV080SPIComponent
       public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
                             spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_1MHZ> {
  public:
-#ifdef USE_ESP32
+#if BMV080_HAVE_ESP_IDF_SPI
   /** SPI host for the BMV080 native device (must match the YAML `spi:` bus). */
   void set_spi_host(spi_host_device_t host) { this->spi_host_ = host; }
 #endif
@@ -316,7 +320,7 @@ class BMV080SPIComponent
                         uint16_t payload_length) override;
   void dump_config_bus_() override;
 
-#ifdef USE_ESP32
+#if BMV080_HAVE_ESP_IDF_SPI
  protected:
   /** Second SPI device on the same bus as ESPHome's delegate (Bosch address-phase format). */
   spi_host_device_t spi_host_{SPI2_HOST};

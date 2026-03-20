@@ -41,9 +41,6 @@
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/application.h"
-#ifdef USE_ESP32
-#include "driver/spi_master.h"
-#endif
 
 namespace esphome {
 namespace bmv080 {
@@ -168,7 +165,7 @@ void BMV080SPIComponent::setup() {
   // SPIDevice does not inherit Component; ESPHome never calls spi_setup() unless we do.
   // Without this, enable()/read_array()/write_array() log "SPIDevice not initialised".
   this->spi_setup();
-#ifdef USE_ESP32
+#if BMV080_HAVE_ESP_IDF_SPI
   // Bosch reference (example/bnv080_io.c): 16-bit address phase + payload, not raw MOSI bytes.
   // Register a dedicated SPI device on the same host as the YAML `spi:` bus (software CS).
   spi_device_interface_config_t devcfg = {};
@@ -192,7 +189,7 @@ void BMV080SPIComponent::setup() {
   BMV080Component::setup();
 }
 
-#ifdef USE_ESP32
+#if BMV080_HAVE_ESP_IDF_SPI
 int8_t BMV080SPIComponent::transport_read(uint16_t header, uint16_t *payload,
                                           uint16_t payload_length) {
   ESP_LOGVV(TAG, "SPI read: header=0x%04X len=%u", header, payload_length);
@@ -285,6 +282,9 @@ int8_t BMV080SPIComponent::transport_read(uint16_t header, uint16_t *payload,
                                           uint16_t payload_length) {
   ESP_LOGVV(TAG, "SPI read: header=0x%04X len=%u", header, payload_length);
 
+  if (!this->spi_is_ready()) {
+    this->spi_setup();
+  }
   this->enable();
   uint8_t header_bytes[2] = {(uint8_t)(header >> 8), (uint8_t)(header & 0xFF)};
   this->write_array(header_bytes, 2);
@@ -319,6 +319,9 @@ int8_t BMV080SPIComponent::transport_write(uint16_t header, const uint16_t *payl
   for (uint16_t i = 0; i < payload_length; i++) {
     buffer[2 + i * 2] = (uint8_t)(payload[i] >> 8);
     buffer[2 + i * 2 + 1] = (uint8_t)(payload[i] & 0xFF);
+  }
+  if (!this->spi_is_ready()) {
+    this->spi_setup();
   }
   this->enable();
   this->write_array(buffer, total_bytes);
