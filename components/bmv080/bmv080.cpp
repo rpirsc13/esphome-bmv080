@@ -41,6 +41,9 @@
 #include "esphome/core/log.h"
 #include "esphome/core/hal.h"
 #include "esphome/core/application.h"
+#ifdef USE_ESP32
+#include "driver/spi_master.h"
+#endif
 
 namespace esphome {
 namespace bmv080 {
@@ -165,9 +168,119 @@ void BMV080SPIComponent::setup() {
   // SPIDevice does not inherit Component; ESPHome never calls spi_setup() unless we do.
   // Without this, enable()/read_array()/write_array() log "SPIDevice not initialised".
   this->spi_setup();
+#ifdef USE_ESP32
+  // Bosch reference (example/bnv080_io.c): 16-bit address phase + payload, not raw MOSI bytes.
+  // Register a dedicated SPI device on the same host as the YAML `spi:` bus (software CS).
+  spi_device_interface_config_t devcfg = {};
+  devcfg.address_bits = 16;
+  devcfg.clock_speed_hz = static_cast<int>(this->data_rate_);
+  devcfg.mode = static_cast<uint8_t>(this->mode_);
+  devcfg.spics_io_num = -1;
+  devcfg.queue_size = 1;
+  devcfg.flags = 0;
+  if (this->bit_order_ == spi::BIT_ORDER_LSB_FIRST) {
+    devcfg.flags |= SPI_DEVICE_BIT_LSBFIRST;
+  }
+  esp_err_t err = spi_bus_add_device(this->spi_host_, &devcfg, &this->bmv080_spi_handle_);
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "BMV080 SPI: spi_bus_add_device failed (%d) — check spi host matches `spi:` interface",
+             (int) err);
+    this->mark_failed();
+    return;
+  }
+#endif
   BMV080Component::setup();
 }
 
+#ifdef USE_ESP32
+int8_t BMV080SPIComponent::transport_read(uint16_t header, uint16_t *payload,
+                                          uint16_t payload_length) {
+  ESP_LOGVV(TAG, "SPI read: header=0x%04X len=%u", header, payload_length);
+
+  if (this->bmv080_spi_handle_ == nullptr || payload == nullptr) {
+    ESP_LOGE(TAG, "SPI read: invalid state");
+    return -2;
+  }
+
+  size_t byte_count = payload_length * 2;
+  if (byte_count > 512) {
+    ESP_LOGE(TAG, "SPI read: payload too large: %u bytes", byte_count);
+    return -2;
+  }
+
+  spi_transaction_ext_t spi_transaction = {};
+  spi_transaction.base.flags = SPI_TRANS_VARIABLE_ADDR | SPI_TRANS_VARIABLE_CMD;
+  spi_transaction.base.addr = header;
+  spi_transaction.base.length = byte_count * 8;
+  spi_transaction.base.rxlength = byte_count * 8;
+  spi_transaction.base.tx_buffer = nullptr;
+  spi_transaction.base.rx_buffer = (void *) payload;
+  spi_transaction.command_bits = 0;
+  spi_transaction.address_bits = 16;
+  spi_transaction.dummy_bits = 0;
+
+  this->cs_->digital_write(false);
+  esp_err_t err = spi_device_polling_transmit(this->bmv080_spi_handle_,
+                                              (spi_transaction_t *) &spi_transaction);
+  this->cs_->digital_write(true);
+
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "SPI read: transmit failed (%d)", (int) err);
+    return -2;
+  }
+
+  for (uint16_t i = 0; i < payload_length; i++) {
+    uint16_t w = payload[i];
+    payload[i] = (uint16_t) (((w << 8) | (w >> 8)) & 0xffff);
+  }
+  return 0;
+}
+
+int8_t BMV080SPIComponent::transport_write(uint16_t header, const uint16_t *payload,
+                                         uint16_t payload_length) {
+  ESP_LOGVV(TAG, "SPI write: header=0x%04X len=%u", header, payload_length);
+
+  if (this->bmv080_spi_handle_ == nullptr) {
+    ESP_LOGE(TAG, "SPI write: invalid state");
+    return -3;
+  }
+
+  size_t byte_count = payload_length * 2;
+  uint8_t buffer[512];
+  if (2 + byte_count > sizeof(buffer)) {
+    ESP_LOGE(TAG, "SPI write: payload too large");
+    return -3;
+  }
+
+  for (uint16_t i = 0; i < payload_length; i++) {
+    uint16_t w = payload[i];
+    uint16_t swapped = (uint16_t) (((w << 8) | (w >> 8)) & 0xffff);
+    buffer[i * 2] = (uint8_t) (swapped >> 8);
+    buffer[i * 2 + 1] = (uint8_t) (swapped & 0xff);
+  }
+
+  spi_transaction_ext_t spi_transaction = {};
+  spi_transaction.base.flags = SPI_TRANS_VARIABLE_ADDR | SPI_TRANS_VARIABLE_CMD;
+  spi_transaction.base.addr = header;
+  spi_transaction.base.length = byte_count * 8;
+  spi_transaction.base.rx_buffer = nullptr;
+  spi_transaction.base.tx_buffer = buffer;
+  spi_transaction.command_bits = 0;
+  spi_transaction.address_bits = 16;
+  spi_transaction.dummy_bits = 0;
+
+  this->cs_->digital_write(false);
+  esp_err_t err = spi_device_polling_transmit(this->bmv080_spi_handle_,
+                                            (spi_transaction_t *) &spi_transaction);
+  this->cs_->digital_write(true);
+
+  if (err != ESP_OK) {
+    ESP_LOGE(TAG, "SPI write: transmit failed (%d)", (int) err);
+    return -3;
+  }
+  return 0;
+}
+#else
 int8_t BMV080SPIComponent::transport_read(uint16_t header, uint16_t *payload,
                                           uint16_t payload_length) {
   ESP_LOGVV(TAG, "SPI read: header=0x%04X len=%u", header, payload_length);
@@ -191,8 +304,7 @@ int8_t BMV080SPIComponent::transport_read(uint16_t header, uint16_t *payload,
   return 0;
 }
 
-int8_t BMV080SPIComponent::transport_write(uint16_t header,
-                                           const uint16_t *payload,
+int8_t BMV080SPIComponent::transport_write(uint16_t header, const uint16_t *payload,
                                            uint16_t payload_length) {
   ESP_LOGVV(TAG, "SPI write: header=0x%04X len=%u", header, payload_length);
 
@@ -213,6 +325,7 @@ int8_t BMV080SPIComponent::transport_write(uint16_t header,
   this->disable();
   return 0;
 }
+#endif
 
 void BMV080SPIComponent::dump_config_bus_() {
   ESP_LOGCONFIG(TAG, "  Interface: SPI");

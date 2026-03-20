@@ -37,6 +37,9 @@
 #include "esphome/core/component.h"
 #include "esphome/components/i2c/i2c.h"
 #include "esphome/components/spi/spi.h"
+#ifdef USE_ESP32
+#include "driver/spi_master.h"
+#endif
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
 
@@ -290,12 +293,20 @@ class BMV080I2CComponent : public BMV080Component, public i2c::I2CDevice {
 
 /**
  * @brief BMV080 over SPI. Header used as-is (no shift). MSB first, Mode 0.
+ *
+ * Transfers follow Bosch's ESP-IDF reference (16-bit address phase + data), not raw MOSI
+ * bytes — see example/bnv080_io.c in this repository.
  */
 class BMV080SPIComponent
     : public BMV080Component,
       public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
                             spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_1MHZ> {
  public:
+#ifdef USE_ESP32
+  /** SPI host for the BMV080 native device (must match the YAML `spi:` bus). */
+  void set_spi_host(spi_host_device_t host) { this->spi_host_ = host; }
+#endif
+
   /** Registers this device with the SPI bus (required before any enable/read/write). */
   void setup() override;
 
@@ -304,6 +315,13 @@ class BMV080SPIComponent
   int8_t transport_write(uint16_t header, const uint16_t *payload,
                         uint16_t payload_length) override;
   void dump_config_bus_() override;
+
+#ifdef USE_ESP32
+ protected:
+  /** Second SPI device on the same bus as ESPHome's delegate (Bosch address-phase format). */
+  spi_host_device_t spi_host_{SPI2_HOST};
+  spi_device_handle_t bmv080_spi_handle_{nullptr};
+#endif
 };
 
 }  // namespace bmv080

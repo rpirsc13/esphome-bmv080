@@ -81,6 +81,7 @@ bmv080:
 
 ```yaml
 spi:
+  interface: spi2   # hardware SPI host (required for BMV080 on ESP32)
   clk_pin: GPIO18
   miso_pin: GPIO19
   mosi_pin: GPIO23
@@ -154,6 +155,9 @@ bmv080:
     spi_id: spi_bus   # Optional: if you have multiple SPI buses
     data_rate: 1MHz   # Optional: default 1MHz
     spi_mode: MODE0   # Optional: MODE0, MODE1, MODE2, or MODE3
+
+  # SPI bus: use a hardware interface (e.g. `interface: spi2`), not software SPI.
+  # The driver matches Bosch’s ESP-IDF reference (16-bit address phase + payload); see `example/bnv080_io.c`.
 
   # Measurement mode (default: continuous)
   #   continuous  — Always on, data every ~1 second, higher power
