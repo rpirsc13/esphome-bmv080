@@ -165,7 +165,7 @@ void BMV080SPIComponent::setup() {
   // SPIDevice does not inherit Component; ESPHome never calls spi_setup() unless we do.
   // Without this, enable()/read_array()/write_array() log "SPIDevice not initialised".
   this->spi_setup();
-#if BMV080_HAVE_ESP_IDF_SPI
+#if BMV080_USE_ESP_IDF_SPI
   // Bosch reference (example/bnv080_io.c): 16-bit address phase + payload, not raw MOSI bytes.
   // Register a dedicated SPI device on the same host as the YAML `spi:` bus (software CS).
   spi_device_interface_config_t devcfg = {};
@@ -189,7 +189,7 @@ void BMV080SPIComponent::setup() {
   BMV080Component::setup();
 }
 
-#if BMV080_HAVE_ESP_IDF_SPI
+#if BMV080_USE_ESP_IDF_SPI
 int8_t BMV080SPIComponent::transport_read(uint16_t header, uint16_t *payload,
                                           uint16_t payload_length) {
   ESP_LOGVV(TAG, "SPI read: header=0x%04X len=%u", header, payload_length);

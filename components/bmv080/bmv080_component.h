@@ -37,12 +37,14 @@
 #include "esphome/core/component.h"
 #include "esphome/components/i2c/i2c.h"
 #include "esphome/components/spi/spi.h"
-// External components may not receive -DUSE_ESP32; detect ESP-IDF SPI by header instead.
-#if __has_include("driver/spi_master.h")
-#define BMV080_HAVE_ESP_IDF_SPI 1
+// Native Bosch SPI (spi_transaction_ext_t) — enabled by __init__.py for ESP32+SPI only
+// (-DBMV080_USE_ESP_IDF_SPI=1). External component TUs often lack -DUSE_ESP32 / __has_include
+// cannot see driver/ during preprocessing; do not rely on those for feature detection.
+#ifndef BMV080_USE_ESP_IDF_SPI
+#define BMV080_USE_ESP_IDF_SPI 0
+#endif
+#if BMV080_USE_ESP_IDF_SPI
 #include "driver/spi_master.h"
-#else
-#define BMV080_HAVE_ESP_IDF_SPI 0
 #endif
 #include "esphome/components/sensor/sensor.h"
 #include "esphome/components/binary_sensor/binary_sensor.h"
@@ -306,7 +308,7 @@ class BMV080SPIComponent
       public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
                             spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_1MHZ> {
  public:
-#if BMV080_HAVE_ESP_IDF_SPI
+#if BMV080_USE_ESP_IDF_SPI
   /** SPI host for the BMV080 native device (must match the YAML `spi:` bus). */
   void set_spi_host(spi_host_device_t host) { this->spi_host_ = host; }
 #endif
@@ -320,7 +322,7 @@ class BMV080SPIComponent
                         uint16_t payload_length) override;
   void dump_config_bus_() override;
 
-#if BMV080_HAVE_ESP_IDF_SPI
+#if BMV080_USE_ESP_IDF_SPI
  protected:
   /** Second SPI device on the same bus as ESPHome's delegate (Bosch address-phase format). */
   spi_host_device_t spi_host_{SPI2_HOST};

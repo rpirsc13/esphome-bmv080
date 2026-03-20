@@ -171,8 +171,11 @@ async def to_code(config):
         config[CONF_ID].type = BMV080SPIComponent
         var = cg.new_Pvariable(config[CONF_ID])
         await spi.register_spi_device(var, config[CONF_SPI])
-        # Native ESP-IDF path must use the same SPI host as the YAML `spi:` bus (e.g. SPI2_HOST).
         if get_target_platform() == PLATFORM_ESP32:
+            # Force native Bosch SPI in C++: external components often lack -DUSE_ESP32 and
+            # __has_include("driver/spi_master.h") is false during preprocessing without this.
+            cg.add_build_flag("-DBMV080_USE_ESP_IDF_SPI=1")
+            # Same SPI host as the YAML `spi:` bus (e.g. SPI2_HOST).
             bus_cfg = _find_spi_bus_config(config[CONF_SPI][CONF_SPI_ID])
             if bus_cfg is None:
                 raise cv.Invalid("Could not find SPI bus configuration for BMV080")
