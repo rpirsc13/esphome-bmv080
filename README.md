@@ -157,7 +157,7 @@ bmv080:
     spi_mode: MODE0   # Optional: MODE0, MODE1, MODE2, or MODE3
 
   # SPI bus: use a hardware interface (e.g. `interface: spi2`), not software SPI.
-  # The driver matches Bosch’s ESP-IDF reference (16-bit address phase + payload); see `example/bnv080_io.c`.
+  # Framing uses ESPHome SPIDevice.write_cmd_addr_data (16-bit address phase + payload); see `example/bnv080_io.c`.
 
   # Measurement mode (default: continuous)
   #   continuous  — Always on, data every ~1 second, higher power

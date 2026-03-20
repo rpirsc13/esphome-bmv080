@@ -42,25 +42,11 @@ YAML Example (SPI):
 import esphome.codegen as cg
 import esphome.config_validation as cv
 from esphome.components import i2c, spi
-from esphome.components.spi import (
-    CONF_INTERFACE_INDEX,
-    get_spi_interface,
-    get_target_platform,
-)
-from esphome.const import CONF_ID, CONF_SPI_ID, PLATFORM_ESP32
-from esphome.core import CORE
+from esphome.const import CONF_ID
 import os
 import logging
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _find_spi_bus_config(spi_id):
-    """Return the `spi:` bus entry whose id matches the SPI device reference."""
-    for bus_conf in CORE.config.get("spi", []):
-        if bus_conf[CONF_ID] == spi_id:
-            return bus_conf
-    return None
 
 
 # Component metadata
@@ -171,21 +157,6 @@ async def to_code(config):
         config[CONF_ID].type = BMV080SPIComponent
         var = cg.new_Pvariable(config[CONF_ID])
         await spi.register_spi_device(var, config[CONF_SPI])
-        if get_target_platform() == PLATFORM_ESP32:
-            # Force native Bosch SPI in C++: external components often lack -DUSE_ESP32 and
-            # __has_include("driver/spi_master.h") is false during preprocessing without this.
-            cg.add_build_flag("-DBMV080_USE_ESP_IDF_SPI=1")
-            # Same SPI host as the YAML `spi:` bus (e.g. SPI2_HOST).
-            bus_cfg = _find_spi_bus_config(config[CONF_SPI][CONF_SPI_ID])
-            if bus_cfg is None:
-                raise cv.Invalid("Could not find SPI bus configuration for BMV080")
-            iface_idx = bus_cfg.get(CONF_INTERFACE_INDEX)
-            if iface_idx is None:
-                raise cv.Invalid(
-                    "BMV080 on SPI requires a hardware SPI bus (set `interface:` on the `spi:` "
-                    "entry to e.g. `spi2`, not `software`)"
-                )
-            cg.add(var.set_spi_host(cg.RawExpression(get_spi_interface(iface_idx))))
 
     await cg.register_component(var, config)
 
