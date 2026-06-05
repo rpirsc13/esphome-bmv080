@@ -1,0 +1,70 @@
+# Compile-check configuration for SPI / Polverine-style wiring (see plan.md).
+substitutions:
+  name: spi-polverine-test
+  friendly_name: SPI Polverine Test
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32-s3-devkitc-1
+  framework:
+    type: arduino
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [bmv080]
+
+logger:
+
+wifi:
+  ap:
+    ssid: "Bmv080 Spi Test"
+    password: "testpassword"
+
+api:
+
+ota:
+  - platform: esphome
+
+spi:
+  clk_pin: GPIO12
+  mosi_pin: GPIO11
+  miso_pin: GPIO13
+
+bmv080:
+  id: my_polverine_pm
+  bus_type: spi
+  cs_pin: GPIO10
+  update_interval: 10s
+  algorithm_preset: HIGH_PRECISION
+  integration_time: 30
+
+sensor:
+  - platform: bmv080
+    bmv080_id: my_polverine_pm
+    pm_2_5_mass:
+      name: "Polverine PM2.5 Mass"
+    pm_2_5_count:
+      name: "Polverine PM2.5 Particle Count"
+    runtime:
+      name: "Sensor Runtime Counter"
+
+binary_sensor:
+  - platform: bmv080
+    bmv080_id: my_polverine_pm
+    obstruction:
+      name: "Laser Optics Obstructed"
+
+select:
+  - platform: bmv080
+    bmv080_id: my_polverine_pm
+    name: "Polverine Optimization Engine Mode"
+
+number:
+  - platform: bmv080
+    bmv080_id: my_polverine_pm
+    name: "Polverine Integration Windows Cycle"

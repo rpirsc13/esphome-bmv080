@@ -1,0 +1,49 @@
+substitutions:
+  name: i2c-bmv080-test
+  friendly_name: I2C BMV080 Test
+
+esphome:
+  name: ${name}
+  friendly_name: ${friendly_name}
+
+esp32:
+  board: esp32-c3-devkitm-1
+  variant: esp32c3
+  framework:
+    type: esp-idf
+
+external_components:
+  - source:
+      type: local
+      path: ../components
+    components: [bmv080]
+
+logger:
+
+wifi:
+  ap:
+    ssid: "Bmv080 I2C Test"
+    password: "testpassword"
+
+api:
+
+ota:
+  - platform: esphome
+
+i2c:
+  sda: GPIO5
+  scl: GPIO4
+
+bmv080:
+  id: bmv080_sensor
+  bus_type: i2c
+  address: 0x57
+  algorithm_preset: HIGH_PRECISION
+  integration_time: 10
+  update_interval: 5s
+
+sensor:
+  - platform: bmv080
+    bmv080_id: bmv080_sensor
+    pm_2_5:
+      name: "PM 2.5"

@@ -66,14 +66,11 @@ interval:
 
 bmv080:
   id: bmv080_sensor
+  bus_type: i2c
   i2c_id: bus_i2c
   address: 0x57
-  mode: continuous
-  measurement_algorithm: high_precision
-  integration_time: 10.0
-  duty_cycling_period: 30
-  obstruction_detection: true
-  vibration_filtering: false
+  algorithm_preset: HIGH_PRECISION
+  integration_time: 10
   update_interval: 5s
 
 sensor:
