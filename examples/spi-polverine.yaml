@@ -31,6 +31,7 @@ ota:
   - platform: esphome
 
 spi:
+  id: bmv080_spi
   clk_pin: GPIO12
   mosi_pin: GPIO11
   miso_pin: GPIO13
@@ -38,6 +39,7 @@ spi:
 bmv080:
   id: my_polverine_pm
   bus_type: spi
+  spi_id: bmv080_spi
   cs_pin: GPIO10
   update_interval: 10s
   algorithm_preset: HIGH_PRECISION

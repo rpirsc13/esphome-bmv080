@@ -113,6 +113,11 @@ void I2CBMV080Component::dump_config() {
 
 #ifdef USE_BMV080_SPI
 
+void SPIBMV080Component::setup() {
+  this->spi_setup();
+  BMV080Component::setup();
+}
+
 int8_t SPIBMV080Component::bus_read_(uint16_t header, uint16_t *payload, uint16_t payload_length) {
   uint8_t header_bytes[2] = {(uint8_t) (header >> 8), (uint8_t) (header & 0xFF)};
   size_t byte_count = payload_length * 2;

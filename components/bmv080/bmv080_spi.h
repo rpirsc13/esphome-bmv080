@@ -17,6 +17,7 @@ class SPIBMV080Component : public BMV080Component,
                            public spi::SPIDevice<spi::BIT_ORDER_MSB_FIRST, spi::CLOCK_POLARITY_LOW,
                                                  spi::CLOCK_PHASE_LEADING, spi::DATA_RATE_1MHZ> {
  public:
+  void setup() override;
   void dump_config() override;
 
  protected:
